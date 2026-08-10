@@ -252,11 +252,6 @@ export const AudioPlayerController: React.FC<Props> = ({
 
   // Exponential Backoff Auto-Reconnect Procedure (Max 3 retries)
   const handleAutoReconnect = () => {
-    if (document.hidden) {
-      console.log('[Auto-Reconnect] App in background (hidden). Suppressing auto-reconnect to prevent crash.');
-      isReconnectingRef.current = false;
-      return;
-    }
     if (!audioRef.current || isReconnectingRef.current) return;
     if (playbackStatusRef.current !== 'PLAYING' && playbackStatusRef.current !== 'BUFFERING') return;
 
@@ -277,7 +272,7 @@ export const AudioPlayerController: React.FC<Props> = ({
     setPlaybackStatus('BUFFERING');
 
     setTimeout(() => {
-      if (document.hidden || !audioRef.current || playbackStatusRef.current === 'PAUSED') {
+      if (!audioRef.current || playbackStatusRef.current === 'PAUSED') {
         isReconnectingRef.current = false;
         return;
       }
@@ -298,22 +293,20 @@ export const AudioPlayerController: React.FC<Props> = ({
         .catch((err) => {
           console.warn(`[Auto-Reconnect] Attempt ${attempt}/3 failed:`, err);
           isReconnectingRef.current = false;
-          if (!document.hidden && retryCountRef.current < 3) {
+          if (retryCountRef.current < 3) {
             handleAutoReconnect();
           } else {
-            setPlaybackStatus(document.hidden ? 'PAUSED' : 'ERROR');
+            setPlaybackStatus('ERROR');
           }
         });
     }, delayMs);
   };
 
-  // Periodic Heartbeat Monitor: Detect stalled stream (currentTime freezing > 10s or unexpected pause)
+  // Periodic Heartbeat Monitor: Detect stalled stream (currentTime freezing > 15s or unexpected pause)
   useEffect(() => {
     if (playbackStatus !== 'PLAYING') return;
 
     const interval = setInterval(() => {
-      if (document.hidden) return; // Prevent background auto-reconnect crash when switching apps
-
       const audio = audioRef.current;
       if (!audio) return;
 
@@ -322,15 +315,14 @@ export const AudioPlayerController: React.FC<Props> = ({
 
       // For live radio streams in Android WebViews, currentTime may advance irregularly or stay constant for intervals.
       // Only treat as stalled if audio is actually paused, ended, has no data (readyState < 2),
-      // AND currentTime hasn't moved for over 30 seconds.
-      const hasEnoughData = audio.readyState >= 3; // HAVE_FUTURE_DATA or HAVE_ENOUGH_DATA
+      // AND currentTime hasn't moved for over 20 seconds.
       const isTrulyStalled =
         !audio.paused &&
         audio.readyState < 2 &&
         currentAudioTime === lastCurrentTimeRef.current.time &&
-        now - lastCurrentTimeRef.current.timestamp > 30000;
+        now - lastCurrentTimeRef.current.timestamp > 20000;
 
-      // If playback status is PLAYING but audio time hasn't advanced for >30s with no data arriving
+      // If playback status is PLAYING but audio time hasn't advanced for >20s with no data arriving
       if (isTrulyStalled) {
         console.warn('[Stall Monitor] Broadcast audio genuinely stalled while in PLAYING state. Starting auto-reconnect...');
         lastCurrentTimeRef.current = { time: currentAudioTime, timestamp: now };
@@ -829,13 +821,17 @@ export const AudioPlayerController: React.FC<Props> = ({
 
   const sleepTimerBtnClass =
     remainingSeconds !== null && playbackStatus === 'PLAYING'
-      ? 'bg-amber-500/20 border-amber-400 text-amber-800 dark:text-amber-300 shadow-sm shadow-amber-500/10 ring-1 ring-amber-400/40'
+      ? currentTheme === 'paper'
+        ? 'bg-amber-200/90 border-amber-600/70 text-amber-950 shadow-sm ring-1 ring-amber-600/40 font-bold'
+        : currentTheme === 'light'
+        ? 'bg-amber-100 border-amber-500/80 text-amber-950 shadow-sm ring-1 ring-amber-500/50 font-bold'
+        : 'bg-amber-500/20 border-amber-400 text-amber-300 shadow-sm shadow-amber-500/10 ring-1 ring-amber-400/40 font-bold'
       : remainingSeconds !== null
       ? currentTheme === 'paper'
-        ? 'bg-[#EFE6D0] border-[#D8C49E] text-[#8C765C]'
+        ? 'bg-[#EFE6D0] border-[#D8C49E] text-amber-950 font-bold'
         : currentTheme === 'light'
-        ? 'bg-slate-100 border-slate-200 text-slate-500'
-        : 'bg-slate-800/80 border-slate-700/80 text-slate-400'
+        ? 'bg-amber-50 border-amber-300 text-amber-900 font-bold'
+        : 'bg-slate-800/80 border-slate-700/80 text-amber-300/90 font-bold'
       : currentTheme === 'paper'
       ? 'bg-[#EFE6D0] border-[#D8C49E] text-[#3B2E1E] hover:bg-[#E2D2B0]'
       : currentTheme === 'light'
@@ -883,14 +879,17 @@ export const AudioPlayerController: React.FC<Props> = ({
         }}
         onEnded={() => {
           console.warn('[Audio Tag] Live stream ended unexpectedly.');
-          if (!document.hidden && playbackStatusRef.current === 'PLAYING') {
+          if (playbackStatusRef.current === 'PLAYING') {
             handleAutoReconnect();
           }
         }}
         onPause={() => {
-          // Native user pause or background pause
-          if (playbackStatusRef.current === 'PLAYING' && !document.hidden && !isReconnectingRef.current) {
-            setPlaybackStatus('PAUSED');
+          // If audio paused unexpectedly while status is PLAYING (e.g. OS background audio pause)
+          if (playbackStatusRef.current === 'PLAYING' && !isReconnectingRef.current) {
+            console.log('[Audio Tag] Unexpected pause in PLAYING state. Attempting auto-resume...');
+            audioRef.current?.play().catch(() => {
+              handleAutoReconnect();
+            });
           }
         }}
         onStalled={() => {
@@ -899,7 +898,7 @@ export const AudioPlayerController: React.FC<Props> = ({
         onError={(e) => {
           const errCode = (e.currentTarget as HTMLAudioElement)?.error?.code;
           console.warn('[Audio Tag] Error code:', errCode || 'unknown');
-          if (!document.hidden && !isReconnectingRef.current) {
+          if (!isReconnectingRef.current) {
             handleAutoReconnect();
           }
         }}
@@ -1035,16 +1034,30 @@ export const AudioPlayerController: React.FC<Props> = ({
                 <Timer
                   className={`w-3.5 h-3.5 shrink-0 ${
                     remainingSeconds !== null && playbackStatus === 'PLAYING'
-                      ? 'text-amber-300 animate-spin'
+                      ? currentTheme === 'dark'
+                        ? 'text-amber-300 animate-spin'
+                        : 'text-amber-950 animate-spin'
                       : remainingSeconds !== null
-                      ? 'text-amber-400/80'
+                      ? currentTheme === 'dark'
+                        ? 'text-amber-300/90'
+                        : 'text-amber-950'
+                      : currentTheme === 'paper'
+                      ? 'text-[#5C4830]'
+                      : currentTheme === 'light'
+                      ? 'text-slate-600'
                       : 'text-slate-400'
                   }`}
                 />
                 {remainingSeconds !== null ? (
                   <span
-                    className={`font-mono font-bold text-xs ${
-                      playbackStatus === 'PLAYING' ? 'text-amber-300' : 'opacity-80'
+                    className={`font-mono font-extrabold text-xs tracking-tight ${
+                      playbackStatus === 'PLAYING'
+                        ? currentTheme === 'dark'
+                          ? 'text-amber-300'
+                          : 'text-amber-950'
+                        : currentTheme === 'dark'
+                        ? 'text-amber-300/90'
+                        : 'text-amber-900'
                     }`}
                   >
                     {Math.floor(remainingSeconds / 3600) > 0 ? `${Math.floor(remainingSeconds / 3600)}:` : ''}
@@ -1056,13 +1069,15 @@ export const AudioPlayerController: React.FC<Props> = ({
                     {sleepMinutes > 0 ? `${sleepMinutes}分鐘` : '關閉定時'}
                   </span>
                 )}
-                <ChevronDown className={`w-3.5 h-3.5 opacity-60 transition-transform duration-200 ${isTimerDropdownOpen ? 'rotate-180 text-blue-400' : ''}`} />
+                <ChevronDown className={`w-3.5 h-3.5 opacity-70 transition-transform duration-200 ${isTimerDropdownOpen ? 'rotate-180 text-blue-500 dark:text-blue-400' : ''}`} />
               </button>
 
               {/* Floating Dropdown Popover */}
               {isTimerDropdownOpen && (
                 <div className={`absolute right-0 top-full mt-2 w-56 rounded-2xl shadow-2xl p-1.5 z-50 animate-fadeIn space-y-0.5 max-h-[400px] overflow-y-auto border ${popoverClass}`}>
-                  <div className="px-2.5 py-1.5 text-[10px] font-bold opacity-60 border-b border-slate-700/40 flex items-center justify-between">
+                  <div className={`px-2.5 py-1.5 text-[10px] font-bold opacity-70 border-b flex items-center justify-between ${
+                    currentTheme === 'paper' ? 'border-[#D8C49E]' : currentTheme === 'light' ? 'border-slate-200' : 'border-slate-700/40'
+                  }`}>
                     <span>睡眠定時器</span>
                     <span className="opacity-70 font-normal">最長 3 小時</span>
                   </div>
