@@ -513,182 +513,9 @@ export const AudioPlayerController: React.FC<Props> = ({
     };
   }, [onNewSubtitle, setSttConnected]);
 
-  // Real-time Local Player Audio Output Recognition with Sentence-Aware ~10s Paragraph Buffering
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const recordingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Client local buffer ref for live sync alignment
   const pendingEnglishBufferRef = useRef<string>('');
   const lastFlushTimeRef = useRef<number>(Date.now());
-
-  useEffect(() => {
-    // Stop recording immediately when audio broadcast is stopped or paused
-    if (playbackStatus !== 'PLAYING' || !audioRef.current) {
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        try {
-          mediaRecorderRef.current.stop();
-        } catch (e) {}
-      }
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-        recordingIntervalRef.current = null;
-      }
-      pendingEnglishBufferRef.current = '';
-      return;
-    }
-
-    let isSubscribed = true;
-    lastFlushTimeRef.current = Date.now();
-
-    try {
-      if (!audioCtxRef.current) {
-        const AudioCtxClass = window.AudioContext || (window as any).webkitAudioContext;
-        audioCtxRef.current = new AudioCtxClass();
-      }
-
-      if (audioCtxRef.current.state === 'suspended') {
-        audioCtxRef.current.resume();
-      }
-
-      let destStream: MediaStream | null = null;
-      if ((audioRef.current as any).captureStream) {
-        destStream = (audioRef.current as any).captureStream();
-      } else if ((audioRef.current as any).mozCaptureStream) {
-        destStream = (audioRef.current as any).mozCaptureStream();
-      }
-
-      if (!destStream && audioCtxRef.current && mediaElementSourceRef.current) {
-        const destNode = audioCtxRef.current.createMediaStreamDestination();
-        mediaElementSourceRef.current.connect(destNode);
-        destStream = destNode.stream;
-      }
-
-      if (destStream && typeof MediaRecorder !== 'undefined') {
-        let chunks: Blob[] = [];
-        const recorder = new MediaRecorder(destStream);
-        mediaRecorderRef.current = recorder;
-
-        recorder.ondataavailable = (e) => {
-          if (e.data && e.data.size > 0) {
-            chunks.push(e.data);
-          }
-        };
-
-        recorder.onstop = async () => {
-          if (chunks.length > 0 && isSubscribed && playbackStatus === 'PLAYING') {
-            const blob = new Blob(chunks, { type: recorder.mimeType || 'audio/webm' });
-            chunks = [];
-
-            try {
-              const res = await fetch('/api/transcribe-audio-chunk', {
-                method: 'POST',
-                headers: { 'Content-Type': recorder.mimeType || 'audio/webm' },
-                body: blob,
-              });
-              const data = await res.json();
-              
-              if (data.english && isSubscribed && playbackStatus === 'PLAYING') {
-                const text = data.english.trim();
-                if (text.length > 0) {
-                  // Accumulate text segment into paragraph buffer
-                  pendingEnglishBufferRef.current = pendingEnglishBufferRef.current
-                    ? `${pendingEnglishBufferRef.current} ${text}`
-                    : text;
-
-                  const fullBuffer = pendingEnglishBufferRef.current.trim();
-                  const elapsedMs = Date.now() - lastFlushTimeRef.current;
-                  const hasSentenceBoundary = /[\.\?!;]\s*$/.test(fullBuffer);
-                  const wordCount = fullBuffer.split(/\s+/).filter(Boolean).length;
-
-                  // Priority: Keep sentence completeness intact (10 seconds is just a reference)
-                  const shouldFlush = 
-                    (hasSentenceBoundary && wordCount >= 5) || 
-                    (elapsedMs >= 15000 && (hasSentenceBoundary || wordCount >= 18));
-
-                  if (shouldFlush) {
-                    const paragraphToTranslate = fullBuffer.replace(/\b(\w+)(?:\s+\1\b)+/gi, '$1').trim();
-                    pendingEnglishBufferRef.current = '';
-                    lastFlushTimeRef.current = Date.now();
-
-                    // Translate the complete sentence paragraph into Traditional Chinese
-                    let translatedZh = data.traditionalChinese;
-                    try {
-                      const transRes = await fetch('/api/translate', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ text: paragraphToTranslate }),
-                      });
-                      const transData = await transRes.json();
-                      if (transData.traditionalChinese) {
-                        translatedZh = transData.traditionalChinese;
-                      }
-                    } catch (e) {
-                      // fallback
-                    }
-
-                    if (isSubscribed && playbackStatus === 'PLAYING') {
-                      const now = Date.now();
-                      onNewSubtitle({
-                        id: `local-${now}-${Math.random().toString(36).substring(2, 6)}`,
-                        timestamp: new Date(now).toLocaleTimeString([], {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          second: '2-digit',
-                          hour12: true,
-                        }),
-                        createdAt: now,
-                        english: paragraphToTranslate,
-                        traditionalChinese: translatedZh,
-                        isFinal: true,
-                      });
-                    }
-                  }
-                }
-              }
-            } catch (err) {
-              console.warn('Local player audio output transcription error:', err);
-            }
-          }
-        };
-
-        recorder.start();
-        recordingIntervalRef.current = setInterval(() => {
-          if (document.hidden) return; // Prevent background MediaRecorder crashes when switching apps
-          if (recorder.state === 'recording') {
-            try {
-              recorder.stop();
-            } catch (e) {
-              console.warn('Recorder stop note:', e);
-            }
-            setTimeout(() => {
-              if (!document.hidden && isSubscribed && recorder.state === 'inactive' && playbackStatusRef.current === 'PLAYING') {
-                chunks = [];
-                try {
-                  recorder.start();
-                } catch (e) {
-                  console.warn('Recorder restart note:', e);
-                }
-              }
-            }, 150);
-          }
-        }, 4000);
-      }
-    } catch (e) {
-      console.warn('Local audio player capture initialization note:', e);
-    }
-
-    return () => {
-      isSubscribed = false;
-      if (recordingIntervalRef.current) {
-        clearInterval(recordingIntervalRef.current);
-        recordingIntervalRef.current = null;
-      }
-      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-        try {
-          mediaRecorderRef.current.stop();
-        } catch (e) {}
-      }
-      pendingEnglishBufferRef.current = '';
-    };
-  }, [playbackStatus, onNewSubtitle]);
 
   // Method B-3: Synchronize audio player to live broadcast stream smoothly with cache flush and fast alignment
   const handleSyncLiveEdge = () => {
@@ -852,40 +679,13 @@ export const AudioPlayerController: React.FC<Props> = ({
     triggerVolumeFeedback();
   };
 
-  // Canvas visualizer waveform setup
+  // Canvas visualizer waveform setup (non-invasive, smooth animation without hijacking HTML5 audio output)
   const setupAudioVisualizer = () => {
-    if (!canvasRef.current || !audioRef.current) return;
-    try {
-      if (!audioCtxRef.current) {
-        const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
-        audioCtxRef.current = new AudioCtx();
-      }
-      const ctx = audioCtxRef.current;
-      if (ctx.state === 'suspended') {
-        ctx.resume().catch(() => {});
-      }
-
-      if (!analyserRef.current) {
-        const analyser = ctx.createAnalyser();
-        analyser.fftSize = 64;
-        analyserRef.current = analyser;
-      }
-
-      if (!mediaElementSourceRef.current && audioRef.current) {
-        const source = ctx.createMediaElementSource(audioRef.current);
-        source.connect(analyserRef.current);
-        analyserRef.current.connect(ctx.destination);
-        mediaElementSourceRef.current = source;
-      }
-
-      drawWaveform();
-    } catch (e) {
-      console.log('AudioContext initialized or cross-origin restrictions apply:', e);
-    }
+    drawWaveform();
   };
 
   const drawWaveform = () => {
-    if (!canvasRef.current || !analyserRef.current) return;
+    if (!canvasRef.current) return;
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
@@ -895,23 +695,24 @@ export const AudioPlayerController: React.FC<Props> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const bufferLength = analyserRef.current.frequencyBinCount;
-    const dataArray = new Uint8Array(bufferLength);
+    const barCount = 32;
+    let step = 0;
 
     const render = () => {
       if (document.hidden) return; // Do not render animation frames in background
-      analyserRef.current?.getByteFrequencyData(dataArray);
-
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      const barWidth = (canvas.width / bufferLength) * 1.5;
+      const barWidth = (canvas.width / barCount) * 0.8;
       let x = 0;
+      step += 0.15;
 
-      for (let i = 0; i < bufferLength; i++) {
-        const barHeight = (dataArray[i] / 255) * canvas.height;
+      for (let i = 0; i < barCount; i++) {
+        const heightMultiplier = Math.abs(Math.sin(step + i * 0.35) * Math.cos(step * 0.8 + i * 0.2));
+        const barHeight = Math.max(3, heightMultiplier * canvas.height * 0.85);
+
         ctx.fillStyle = playbackStatusRef.current === 'PLAYING' ? '#3B82F6' : '#94A3B8';
         ctx.fillRect(x, canvas.height - barHeight, barWidth - 1, barHeight);
-        x += barWidth + 1;
+        x += barWidth + 2;
       }
 
       if (playbackStatusRef.current === 'PLAYING') {

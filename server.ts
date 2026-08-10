@@ -343,6 +343,7 @@ function proxyRadioAudio(targetUrl: string, res: express.Response, redirectDepth
     path: parsedUrl.pathname + parsedUrl.search,
     method: 'GET',
     rejectUnauthorized: false,
+    timeout: 10000,
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) RadioStreamProxy/1.0',
       'Accept': '*/*',
@@ -354,7 +355,8 @@ function proxyRadioAudio(targetUrl: string, res: express.Response, redirectDepth
   const clientReq = requester.get(requestOptions, (remoteRes) => {
     // Keep socket alive
     if (clientReq.socket) {
-      clientReq.socket.setKeepAlive(true, 10000);
+      clientReq.socket.setKeepAlive(true, 5000);
+      clientReq.socket.setNoDelay(true);
     }
 
     remoteRes.on('error', (err: any) => {
@@ -392,7 +394,7 @@ function proxyRadioAudio(targetUrl: string, res: express.Response, redirectDepth
           if (!res.writableEnded && !res.destroyed) {
             proxyRadioAudio(targetUrl, res, redirectDepth + 1);
           }
-        }, 1000);
+        }, 800);
       }
     });
 
@@ -402,7 +404,7 @@ function proxyRadioAudio(targetUrl: string, res: express.Response, redirectDepth
           if (!res.writableEnded && !res.destroyed) {
             proxyRadioAudio(targetUrl, res, redirectDepth + 1);
           }
-        }, 1000);
+        }, 800);
       }
     });
 
@@ -419,6 +421,18 @@ function proxyRadioAudio(targetUrl: string, res: express.Response, redirectDepth
       try { remoteRes.destroy(); } catch (e) {}
       try { clientReq.destroy(); } catch (e) {}
     });
+  });
+
+  clientReq.setTimeout(12000, () => {
+    console.warn('[Radio Proxy] Upstream request timeout. Reconnecting...');
+    try { clientReq.destroy(); } catch (e) {}
+    if (!res.writableEnded && !res.destroyed) {
+      setTimeout(() => {
+        if (!res.writableEnded && !res.destroyed) {
+          proxyRadioAudio(targetUrl, res, redirectDepth + 1);
+        }
+      }, 500);
+    }
   });
 
   clientReq.on('error', (err) => {
