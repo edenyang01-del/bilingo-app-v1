@@ -25,7 +25,7 @@ jobs:
       - name: Build Android App Bundle (AAB) & APK
         run: |
           cd android
-          gradle bundleRelease assembleRelease
+          gradle bundleRelease assembleRelease assembleDebug
 
       - name: Upload Release AAB to Artifacts
         uses: actions/upload-artifact@v4
@@ -38,3 +38,9 @@ jobs:
         with:
           name: app-release-apk
           path: android/app/build/outputs/apk/release/*.apk
+
+      - name: Upload Debug APK to Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-debug-apk
+          path: android/app/build/outputs/apk/debug/*.apk
