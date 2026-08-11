@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { SubtitleItem, PlaybackStatus, RadioStation, ReadingMode } from './types';
 import { AudioPlayerController } from './components/AudioPlayerController';
 import { Material3AndroidFrame } from './components/Material3AndroidFrame';
@@ -51,9 +52,36 @@ const DEFAULT_STATIONS: RadioStation[] = [
 ];
 
 export default function App() {
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [initProgress, setInitProgress] = useState(20);
+  const [initStatusText, setInitStatusText] = useState('初始化系統模組...');
+
   const [activeTab, setActiveTab] = useState<'app' | 'code' | 'api'>('app');
   const [playbackStatus, setPlaybackStatus] = useState<PlaybackStatus>('IDLE');
   const [sttConnected, setSttConnected] = useState(false);
+
+  useEffect(() => {
+    const timer1 = setTimeout(() => {
+      setInitProgress(60);
+      setInitStatusText('連接雙語廣播與字幕串流...');
+    }, 200);
+
+    const timer2 = setTimeout(() => {
+      setInitProgress(90);
+      setInitStatusText('載入電台清單與語音對齊模組...');
+    }, 450);
+
+  const timer3 = setTimeout(() => {
+      setInitProgress(100);
+      setIsInitializing(false);
+    }, 700);
+
+    return () => {
+      clearTimeout(timer1);
+      clearTimeout(timer2);
+      clearTimeout(timer3);
+    };
+  }, []);
 
   // Radio Station Management State
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
@@ -431,6 +459,57 @@ export default function App() {
 
   return (
     <div className={`min-h-screen font-sans selection:bg-blue-600 selection:text-white pb-12 transition-colors duration-200 ${appBgClass}`}>
+      {/* Startup Loading Overlay Animation */}
+      <AnimatePresence>
+        {isInitializing && (
+          <motion.div
+            key="app-startup-splash-overlay"
+            initial={{ opacity: 1 }}
+            exit={{ opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.35, ease: 'easeOut' }}
+            className="fixed inset-0 z-[9999] bg-[#0b0f19] text-white flex flex-col items-center justify-center p-6 select-none"
+          >
+            <div className="relative w-24 h-24 flex items-center justify-center mb-6">
+              <div className="absolute inset-0 rounded-full border-2 border-blue-500/30 animate-ping" />
+              <div className="absolute -inset-3 rounded-full border border-amber-400/40 animate-spin" style={{ animationDuration: '8s' }} />
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-amber-500 flex items-center justify-center shadow-xl shadow-blue-500/30 ring-1 ring-white/20">
+                <Radio className="w-8 h-8 text-white animate-pulse" />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 mb-1">
+              <h1 className="text-xl font-bold tracking-tight text-white">Live Bilingo 雙語電台</h1>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-400/30">
+                v1.6.0
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mb-6 font-medium">即時 AI 雙語字幕 • 語音對齊串流</p>
+
+            {/* Dynamic Sound Equalizer Waves */}
+            <div className="flex items-end gap-1.5 h-8 mb-6">
+              <span className="w-1.5 bg-blue-500 rounded-full animate-pulse" style={{ height: '60%', animationDuration: '0.8s' }} />
+              <span className="w-1.5 bg-indigo-400 rounded-full animate-pulse" style={{ height: '100%', animationDuration: '1.2s' }} />
+              <span className="w-1.5 bg-amber-400 rounded-full animate-pulse" style={{ height: '80%', animationDuration: '0.9s' }} />
+              <span className="w-1.5 bg-blue-400 rounded-full animate-pulse" style={{ height: '90%', animationDuration: '1.1s' }} />
+              <span className="w-1.5 bg-emerald-400 rounded-full animate-pulse" style={{ height: '50%', animationDuration: '0.7s' }} />
+            </div>
+
+            {/* Progress Bar Track */}
+            <div className="w-56 h-1.5 bg-slate-800 rounded-full overflow-hidden mb-3 relative border border-slate-700/50">
+              <div
+                className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-amber-400 transition-all duration-300 ease-out rounded-full"
+                style={{ width: `${initProgress}%` }}
+              />
+            </div>
+
+            <div className="text-xs text-slate-400 font-mono tracking-wide flex items-center gap-1.5">
+              <RefreshCw className="w-3 h-3 animate-spin text-blue-400 shrink-0" />
+              <span>{initStatusText}</span>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* In-App Browser Warning Header Banner */}
       {isInAppBrowser && !isInstalled && (
         <div className="bg-amber-500/20 border-b border-amber-500/40 px-3 sm:px-4 py-2 text-xs text-amber-200 flex items-center justify-between gap-2 z-50 relative">
