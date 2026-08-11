@@ -52,8 +52,17 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(event.request.url);
 
-  // NEVER cache API requests or stream proxies
-  if (url.pathname.startsWith('/api/')) {
+  // NEVER cache API requests, Vite dev scripts, modules, or HMR requests
+  if (
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/@') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.startsWith('/node_modules/') ||
+    url.search.includes('t=') ||
+    url.search.includes('import') ||
+    url.pathname.endsWith('.tsx') ||
+    url.pathname.endsWith('.ts')
+  ) {
     return;
   }
 
@@ -66,7 +75,7 @@ self.addEventListener('fetch', (event) => {
   if (isNavigation) {
     event.respondWith(
       (async () => {
-        // If device is offline, return cached page immediately without waiting for fetch timeout
+        // If device is offline, return cached page immediately
         if (typeof navigator !== 'undefined' && !navigator.onLine) {
           const cachedPage =
             (await caches.match(event.request, { ignoreSearch: true })) ||
@@ -75,14 +84,9 @@ self.addEventListener('fetch', (event) => {
           if (cachedPage) return cachedPage;
         }
 
-        // Fast network fetch with 2s timeout fallback to cache
+        // Fetch fresh page from network first without artificial timeout
         try {
-          const fetchPromise = fetch(event.request);
-          const timeoutPromise = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Network timeout')), 2000)
-          );
-
-          const networkResponse = await Promise.race([fetchPromise, timeoutPromise]);
+          const networkResponse = await fetch(event.request);
           if (networkResponse && networkResponse.status === 200) {
             const responseToCache = networkResponse.clone();
             const cache = await caches.open(CACHE_NAME);
@@ -90,7 +94,7 @@ self.addEventListener('fetch', (event) => {
             return networkResponse;
           }
         } catch (e) {
-          console.warn('[SW] Navigation network fetch failed or timed out. Falling back to offline cache.', e);
+          console.warn('[SW] Navigation network fetch failed. Falling back to offline cache.', e);
         }
 
         const fallbackPage =

@@ -189,17 +189,53 @@
         <div class="bilingo-status-text">系統啟動中，請稍候...</div>
       </div>
     </div>
+    <script>
+      // Automatic error handling for stale module script loading failures
+      window.addEventListener('error', function(e) {
+        if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+          console.warn('Resource load error detected:', e.target.src || e.target.href);
+          if (sessionStorage.getItem('bilingo_reload_attempted') !== 'true') {
+            sessionStorage.setItem('bilingo_reload_attempted', 'true');
+            if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.getRegistrations().then(function(regs) {
+                regs.forEach(function(r) { r.unregister(); });
+              });
+            }
+            if (window.caches) {
+              caches.keys().then(function(keys) {
+                keys.forEach(function(k) { caches.delete(k); });
+              });
+            }
+            window.location.reload(true);
+          }
+        }
+      }, true);
+    </script>
     <script type="module" src="/src/main.tsx"></script>
     <script>
       if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js', { scope: '/' })
-            .then((reg) => {
-              console.log('SW Registered:', reg.scope);
-              reg.update().catch(() => {});
-            })
-            .catch((err) => console.log('SW Register error:', err));
-        });
+        const isDev = location.hostname === 'localhost' || location.hostname.includes('ais-dev') || location.hostname.includes('run.app');
+        if (isDev) {
+          navigator.serviceWorker.getRegistrations().then((registrations) => {
+            for (let registration of registrations) {
+              registration.unregister();
+            }
+          });
+          if (window.caches) {
+            caches.keys().then((names) => {
+              for (let name of names) caches.delete(name);
+            });
+          }
+        } else {
+          window.addEventListener('load', () => {
+            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+              .then((reg) => {
+                console.log('SW Registered:', reg.scope);
+                reg.update().catch(() => {});
+              })
+              .catch((err) => console.log('SW Register error:', err));
+          });
+        }
       }
     </script>
   </body>

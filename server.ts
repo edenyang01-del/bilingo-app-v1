@@ -1153,7 +1153,7 @@ function startBackendDeepgramStreaming(streamUrl = currentRadioStreamUrl) {
 }
 
 // Endpoint for receiving audio output chunks directly from the client's local audio player
-app.post('/api/transcribe-audio-chunk', express.raw({ type: '*/*', limit: '10mb' }), async (req, res) => {
+app.post('/api/transcribe-audio-chunk', express.raw({ type: '*/*', limit: '2mb' }), async (req, res) => {
   try {
     const audioBuffer = req.body;
     if (!audioBuffer || !Buffer.isBuffer(audioBuffer) || audioBuffer.length === 0) {
@@ -1236,7 +1236,10 @@ async function startServer() {
 
   if (process.env.NODE_ENV !== 'production') {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: false,
+      },
       appType: 'spa',
     });
     app.use(vite.middlewares);
