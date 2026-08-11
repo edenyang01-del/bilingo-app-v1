@@ -18,9 +18,26 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("release") {
+            val ksFile = file("release.keystore")
+            if (ksFile.exists()) {
+                storeFile = ksFile
+                storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: "bilingo123456"
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "bilingokey"
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: "bilingo123456"
+            }
+        }
+    }
+
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("debug")
+            val releaseSigning = signingConfigs.findByName("release")
+            if (releaseSigning != null && file("release.keystore").exists()) {
+                signingConfig = releaseSigning
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),

@@ -22,6 +22,11 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
+      - name: Generate Release Keystore
+        run: |
+          cd android/app
+          keytool -genkey -v -keystore release.keystore -alias bilingokey -keyalg RSA -keysize 2048 -validity 10000 -storepass bilingo123456 -keypass bilingo123456 -dname "CN=Bilingo, OU=Radio, O=Bilingo, L=Taipei, ST=Taiwan, C=TW"
+
       - name: Build Android App Bundle (AAB) & APK
         run: |
           cd android
