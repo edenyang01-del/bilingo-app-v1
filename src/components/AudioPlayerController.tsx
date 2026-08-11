@@ -570,9 +570,10 @@ export const AudioPlayerController: React.FC<Props> = ({
       setRemainingSeconds((prev) => {
         if (prev === null || prev <= 1) {
           clearInterval(interval);
+          playbackStatusRef.current = 'PAUSED';
+          setPlaybackStatus('PAUSED');
           if (audioRef.current) {
             audioRef.current.pause();
-            setPlaybackStatus('PAUSED');
           }
           setSleepMinutes(0);
           return null;
@@ -599,8 +600,11 @@ export const AudioPlayerController: React.FC<Props> = ({
     if (!audioRef.current) return;
 
     if (playbackStatus === 'PLAYING') {
-      audioRef.current.pause();
+      playbackStatusRef.current = 'PAUSED';
       setPlaybackStatus('PAUSED');
+      if (audioRef.current) {
+        audioRef.current.pause();
+      }
     } else {
       // 1. Clear client local speech recognition buffer
       pendingEnglishBufferRef.current = '';
