@@ -12,8 +12,8 @@ android {
         applicationId = "com.bilingo.radio"
         minSdk = 24
         targetSdk = 35
-        versionCode = 178
-        versionName = "1.7.8"
+        versionCode = 179
+        versionName = "1.7.9"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -21,23 +21,23 @@ android {
     signingConfigs {
         create("release") {
             val ksFile = file("release.keystore")
-            if (ksFile.exists() && ksFile.length() > 500) {
+            if (ksFile.exists() && ksFile.length() > 100) {
                 storeFile = ksFile
                 storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD") ?: "bilingo123456"
                 keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: System.getenv("KEY_ALIAS") ?: "bilingokey"
                 keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: System.getenv("KEY_PASSWORD") ?: "bilingo123456"
+            } else {
+                storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
+                storePassword = "android"
+                keyAlias = "androiddebugkey"
+                keyPassword = "android"
             }
         }
     }
 
     buildTypes {
         release {
-            val ksFile = file("release.keystore")
-            if (ksFile.exists() && ksFile.length() > 500) {
-                signingConfig = signingConfigs.getByName("release")
-            } else {
-                signingConfig = signingConfigs.getByName("debug")
-            }
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -45,10 +45,7 @@ android {
             )
         }
         debug {
-            val ksFile = file("release.keystore")
-            if (ksFile.exists() && ksFile.length() > 500) {
-                signingConfig = signingConfigs.getByName("release")
-            }
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
         }
     }

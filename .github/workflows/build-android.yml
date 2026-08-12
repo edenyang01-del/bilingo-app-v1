@@ -24,11 +24,23 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Restore Release Keystore
+      - name: Restore or Generate Release Keystore
         run: |
           cd android/app
           if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
+            echo "Restoring keystore from secret..."
             echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
+          else
+            echo "Generating consistent release keystore..."
+            keytool -genkeypair -v \
+              -keystore release.keystore \
+              -alias "${{ secrets.RELEASE_KEY_ALIAS || 'bilingokey' }}" \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -storepass "${{ secrets.RELEASE_STORE_PASSWORD || 'bilingo123456' }}" \
+              -keypass "${{ secrets.RELEASE_KEY_PASSWORD || 'bilingo123456' }}" \
+              -dname "CN=Bilingo, OU=Radio, O=Bilingo, L=Taipei, C=TW"
           fi
 
       - name: Build Android App Bundle (AAB) & APK
