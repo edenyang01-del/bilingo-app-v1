@@ -97,7 +97,7 @@ fun MainScreen(
                     webViewClient = object : WebViewClient() {
                         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                             super.onPageStarted(view, url, favicon)
-                            if (url != null && url != "about:blank") {
+                            if (url != null && url != "about:blank" && !url.startsWith("data:")) {
                                 isOfflineError = false
                             }
                             isLoading = true
@@ -114,7 +114,8 @@ fun MainScreen(
                             error: WebResourceError?
                         ) {
                             super.onReceivedError(view, request, error)
-                            if (request?.isForMainFrame == true) {
+                            val reqUrl = request?.url?.toString() ?: ""
+                            if (request?.isForMainFrame == true && (reqUrl.startsWith("http://") || reqUrl.startsWith("https://"))) {
                                 isOfflineError = true
                                 isLoading = false
                             }
@@ -183,11 +184,18 @@ fun MainScreen(
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Button(
                             onClick = {
-                                isOfflineError = false
-                                isLoading = false
-                                webViewInstance?.apply {
-                                    if (!isNetworkAvailable(context)) {
-                                        loadDataWithBaseURL("https://ais-pre-2ezjlg7ygolcgvkdlo7zla-290275720433.asia-northeast1.run.app", getOfflineHtmlContent(), "text/html", "UTF-8", null)
+                                if (isNetworkAvailable(context)) {
+                                    isOfflineError = false
+                                    isLoading = true
+                                    webViewInstance?.apply {
+                                        settings.cacheMode = WebSettings.LOAD_DEFAULT
+                                        loadUrl(webAppUrl)
+                                    }
+                                } else {
+                                    isOfflineError = false
+                                    isLoading = false
+                                    webViewInstance?.apply {
+                                        loadDataWithBaseURL("about:blank", getOfflineHtmlContent(), "text/html", "UTF-8", null)
                                     }
                                 }
                             },
