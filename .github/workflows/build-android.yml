@@ -32,24 +32,25 @@ jobs:
           KEY_ALIAS="${{ secrets.RELEASE_KEY_ALIAS }}"
           
           STORE_PASS="${STORE_PASS:-bilingo123456}"
-          KEY_PASS="${KEY_PASS:-bilingo123456}"
+          KEY_PASS="${KEY_PASS:-$STORE_PASS}"
           KEY_ALIAS="${KEY_ALIAS:-bilingokey}"
           
-          KEYSTORE_RESTORED=false
+          KEYSTORE_VALID=false
           if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
             echo "Attempting to restore keystore from RELEASE_KEYSTORE_BASE64..."
             echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | tr -d ' \n\r' | base64 -d > release.keystore 2>/dev/null || true
-            if [ -s release.keystore ] && [ $(wc -c < release.keystore) -gt 100 ]; then
-              echo "Keystore restored successfully from secret."
-              KEYSTORE_RESTORED=true
+            if [ -s release.keystore ] && keytool -list -keystore release.keystore -storepass "$STORE_PASS" >/dev/null 2>&1; then
+              echo "Keystore restored and verified successfully from secret."
+              KEYSTORE_VALID=true
             else
-              echo "Restored keystore was invalid or empty, removing corrupted file..."
+              echo "Restored keystore was invalid or storepass did not match, removing corrupted file..."
               rm -f release.keystore
             fi
           fi
 
-          if [ "$KEYSTORE_RESTORED" = "false" ]; then
+          if [ "$KEYSTORE_VALID" = "false" ]; then
             echo "Generating fresh release keystore using keytool..."
+            rm -f release.keystore
             keytool -genkeypair -v -keystore release.keystore -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 -storepass "$STORE_PASS" -keypass "$KEY_PASS" -dname "CN=Bilingo, OU=Radio, O=Bilingo, L=Taipei, ST=Taiwan, C=TW"
           fi
 
@@ -69,7 +70,7 @@ jobs:
           cd android
           chmod +x gradlew
           export RELEASE_STORE_PASSWORD="${RELEASE_STORE_PASSWORD:-bilingo123456}"
-          export RELEASE_KEY_PASSWORD="${RELEASE_KEY_PASSWORD:-bilingo123456}"
+          export RELEASE_KEY_PASSWORD="${RELEASE_KEY_PASSWORD:-$RELEASE_STORE_PASSWORD}"
           export RELEASE_KEY_ALIAS="${RELEASE_KEY_ALIAS:-bilingokey}"
           ./gradlew assembleRelease bundleRelease assembleDebug --no-daemon --stacktrace
 

@@ -12,8 +12,8 @@ android {
         applicationId = "com.bilingo.radio"
         minSdk = 24
         targetSdk = 35
-        versionCode = 197
-        versionName = "1.9.7"
+        versionCode = 198
+        versionName = "1.9.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -21,17 +21,41 @@ android {
     signingConfigs {
         create("release") {
             val ksFile = file("release.keystore")
+            val storePass = System.getenv("RELEASE_STORE_PASSWORD")?.ifEmpty { null }
+                ?: System.getenv("KEYSTORE_PASSWORD")?.ifEmpty { null }
+                ?: "bilingo123456"
+            val keyPass = System.getenv("RELEASE_KEY_PASSWORD")?.ifEmpty { null }
+                ?: System.getenv("KEY_PASSWORD")?.ifEmpty { null }
+                ?: storePass
+            val alias = System.getenv("RELEASE_KEY_ALIAS")?.ifEmpty { null }
+                ?: System.getenv("KEY_ALIAS")?.ifEmpty { null }
+                ?: "bilingokey"
+
+            if (!ksFile.exists() || ksFile.length() <= 100) {
+                try {
+                    val pb = ProcessBuilder(
+                        "keytool", "-genkeypair", "-v",
+                        "-keystore", ksFile.absolutePath,
+                        "-alias", alias,
+                        "-keyalg", "RSA",
+                        "-keysize", "2048",
+                        "-validity", "10000",
+                        "-storepass", storePass,
+                        "-keypass", keyPass,
+                        "-dname", "CN=Bilingo, OU=Radio, O=Bilingo, L=Taipei, ST=Taiwan, C=TW"
+                    )
+                    val process = pb.start()
+                    process.waitFor()
+                } catch (e: Exception) {
+                    println("Note: Failed to auto-generate release.keystore: ${e.message}")
+                }
+            }
+
             if (ksFile.exists() && ksFile.length() > 100) {
                 storeFile = ksFile
-                storePassword = System.getenv("RELEASE_STORE_PASSWORD")?.ifEmpty { null }
-                    ?: System.getenv("KEYSTORE_PASSWORD")?.ifEmpty { null }
-                    ?: "bilingo123456"
-                keyAlias = System.getenv("RELEASE_KEY_ALIAS")?.ifEmpty { null }
-                    ?: System.getenv("KEY_ALIAS")?.ifEmpty { null }
-                    ?: "bilingokey"
-                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")?.ifEmpty { null }
-                    ?: System.getenv("KEY_PASSWORD")?.ifEmpty { null }
-                    ?: "bilingo123456"
+                storePassword = storePass
+                keyAlias = alias
+                keyPassword = keyPass
             } else {
                 val debugConfig = signingConfigs.getByName("debug")
                 storeFile = debugConfig.storeFile
