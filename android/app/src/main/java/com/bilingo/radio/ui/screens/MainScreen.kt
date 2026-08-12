@@ -132,7 +132,7 @@ fun MainScreen(
                         loadWithOverviewMode = false
                         setSupportZoom(false)
                         textZoom = 100
-                        userAgentString = "$userAgentString AndroidApp/2.0.2"
+                        userAgentString = "$userAgentString AndroidApp/2.0.3"
                         cacheMode = WebSettings.LOAD_DEFAULT
                     }
 

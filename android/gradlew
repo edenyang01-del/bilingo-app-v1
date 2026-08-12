@@ -59,6 +59,9 @@ WRAPPER_JAR="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
 # Check if gradle is in PATH, otherwise use installed gradle or wrapper
 if command -v gradle >/dev/null 2>&1; then
     exec gradle "$@"
+elif [ -f "$WRAPPER_JAR" ] && command -v java >/dev/null 2>&1; then
+    exec java -jar "$WRAPPER_JAR" "$@"
 else
-    exec gradle "$@"
+    echo "ERROR: Neither 'gradle' command nor 'gradle-wrapper.jar' was found." >&2
+    exit 1
 fi

@@ -33,7 +33,7 @@ jobs:
         run: |
           cd android/app
           python3 -c '
-          import os, sys, base64, subprocess
+          import os, sys, base64, subprocess, re
 
           ks_path = "release.keystore"
           env_b64 = os.environ.get("RELEASE_KEYSTORE_BASE64", "").strip()
@@ -47,56 +47,65 @@ jobs:
               return res.returncode == 0
 
           def find_aliases(path, store_pass):
-              cmd = ["keytool", "-list", "-v", "-keystore", path, "-storepass", store_pass]
+              cmd = ["keytool", "-list", "-keystore", path, "-storepass", store_pass]
               res = subprocess.run(cmd, capture_output=True, text=True)
               if res.returncode != 0:
                   return []
               aliases = []
               for line in res.stdout.splitlines():
-                  if line.strip().startswith("Alias name:"):
-                      aliases.append(line.split(":", 1)[1].strip())
+                  if "," in line and any(k in line.lower() for k in ["privatekeyentry", "keyentry", "trustedcertentry"]):
+                      aliases.append(line.split(",")[0].strip())
+                  elif ":" in line:
+                      parts = line.split(":", 1)
+                      if any(k in parts[0].lower() for k in ["alias", "別名"]):
+                          aliases.append(parts[1].strip())
               return aliases
 
           valid = False
           final_store_pass = env_store_pass
           final_key_pass = env_key_pass
           final_alias = env_alias
+          status_msg = ""
 
           if env_b64:
               try:
-                  data = base64.b64decode(env_b64)
+                  clean_b64 = re.sub(r"[^A-Za-z0-9+/=]", "", env_b64)
+                  data = base64.b64decode(clean_b64)
                   if len(data) > 100:
                       with open(ks_path, "wb") as f:
                           f.write(data)
                       if check_keystore(ks_path, env_store_pass, env_key_pass, env_alias):
                           valid = True
+                          status_msg = "Restored keystore from secret successfully."
                       elif check_keystore(ks_path, env_store_pass, env_store_pass, env_alias):
                           final_key_pass = env_store_pass
                           valid = True
+                          status_msg = "Restored keystore using storepass as keypass."
                       else:
                           aliases = find_aliases(ks_path, env_store_pass)
                           for a in aliases:
                               if check_keystore(ks_path, env_store_pass, env_key_pass, a):
                                   final_alias = a
                                   valid = True
+                                  status_msg = f"Restored keystore with alias '{a}'."
                                   break
                               elif check_keystore(ks_path, env_store_pass, env_store_pass, a):
                                   final_alias = a
                                   final_key_pass = env_store_pass
                                   valid = True
+                                  status_msg = f"Restored keystore with alias '{a}' using storepass as keypass."
                                   break
               except Exception as e:
                   print("Error decoding base64 keystore:", e)
 
           if not valid:
-              print("Release keystore from secrets missing or invalid. Generating fresh self-signed keystore...")
               if os.path.exists(ks_path):
                   os.remove(ks_path)
               final_store_pass = "bilingo123456"
               final_key_pass = "bilingo123456"
               final_alias = "bilingokey"
               cmd = [
-                  "keytool", "-genkeypair", "-v",
+                  "keytool", "-genkeypair",
                   "-keystore", ks_path,
                   "-alias", final_alias,
                   "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000",
@@ -105,8 +114,10 @@ jobs:
                   "-dname", "CN=Bilingo, OU=Radio, O=Bilingo, L=Taipei, ST=Taiwan, C=TW"
               ]
               subprocess.run(cmd, check=True)
+              status_msg = "Secret keystore missing/invalid. Generated fresh self-signed keystore."
 
-          print(f"Keystore ready! Alias: {final_alias}")
+          print(f"Keystore status: {status_msg}")
+          print(f"Alias: {final_alias}")
 
           github_env = os.environ.get("GITHUB_ENV")
           if github_env:
@@ -114,6 +125,14 @@ jobs:
                   f.write(f"RELEASE_STORE_PASSWORD={final_store_pass}\n")
                   f.write(f"RELEASE_KEY_PASSWORD={final_key_pass}\n")
                   f.write(f"RELEASE_KEY_ALIAS={final_alias}\n")
+
+          step_summary = os.environ.get("GITHUB_STEP_SUMMARY")
+          if step_summary:
+              with open(step_summary, "a") as f:
+                  f.write(f"### 🔑 Android Signing Keystore Status\n")
+                  f.write(f"- **Status**: {status_msg}\n")
+                  f.write(f"- **Alias**: `{final_alias}`\n")
+                  f.write(f"- **Keystore Size**: {os.path.getsize(ks_path)} bytes\n")
           '
 
       - name: Build Web App and Sync to Android Assets

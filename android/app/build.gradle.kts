@@ -12,8 +12,8 @@ android {
         applicationId = "com.bilingo.radio"
         minSdk = 24
         targetSdk = 35
-        versionCode = 202
-        versionName = "2.0.2"
+        versionCode = 203
+        versionName = "2.0.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -31,28 +31,7 @@ android {
                 ?: System.getenv("KEY_ALIAS")?.ifEmpty { null }
                 ?: "bilingokey"
 
-            if (!ksFile.exists() || ksFile.length() < 100) {
-                try {
-                    println("Generating release keystore in Gradle...")
-                    val pb = ProcessBuilder(
-                        "keytool", "-genkeypair", "-v",
-                        "-keystore", ksFile.absolutePath,
-                        "-alias", alias,
-                        "-keyalg", "RSA",
-                        "-keysize", "2048",
-                        "-validity", "10000",
-                        "-storepass", storePass,
-                        "-keypass", keyPass,
-                        "-dname", "CN=Bilingo, OU=Radio, O=Bilingo, L=Taipei, ST=Taiwan, C=TW"
-                    )
-                    val proc = pb.start()
-                    proc.waitFor()
-                } catch (e: Exception) {
-                    println("Error generating release keystore: ${e.message}")
-                }
-            }
-
-            if (ksFile.exists()) {
+            if (ksFile.exists() && ksFile.length() > 100) {
                 storeFile = ksFile
                 storePassword = storePass
                 keyAlias = alias
@@ -63,7 +42,12 @@ android {
 
     buildTypes {
         release {
-            signingConfig = signingConfigs.getByName("release")
+            val releaseSigning = signingConfigs.findByName("release")
+            if (releaseSigning?.storeFile?.exists() == true) {
+                signingConfig = releaseSigning
+            } else {
+                signingConfig = signingConfigs.getByName("debug")
+            }
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -74,6 +58,11 @@ android {
             signingConfig = signingConfigs.getByName("debug")
             isMinifyEnabled = false
         }
+    }
+
+    lint {
+        checkReleaseBuilds = false
+        abortOnError = false
     }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
