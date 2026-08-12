@@ -31,6 +31,16 @@ var import_https = __toESM(require("https"), 1);
 process.env.NODE_TLS_REJECT_UNAUTHORIZED = "0";
 var app = (0, import_express.default)();
 var PORT = 3e3;
+app.use((req, res, next) => {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE, PATCH");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+  if (req.method === "OPTIONS") {
+    res.sendStatus(200);
+    return;
+  }
+  next();
+});
 app.use(import_express.default.json());
 var translationCache = /* @__PURE__ */ new Map();
 function withTimeout(promise, ms) {

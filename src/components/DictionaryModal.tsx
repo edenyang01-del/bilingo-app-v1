@@ -61,11 +61,21 @@ export const DictionaryModal: React.FC<Props> = ({ isOpen, onClose, initialWord 
     setSearchWord(cleanWord);
 
     try {
-      const res = await fetch(getApiUrl(`/api/dictionary?word=${encodeURIComponent(cleanWord)}`));
-      if (res.ok) {
-        const data = await res.json();
-        setResult(data);
-      } else {
+      let serverSuccess = false;
+      try {
+        const res = await fetch(getApiUrl(`/api/dictionary?word=${encodeURIComponent(cleanWord)}`));
+        if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+          const data = await res.json();
+          if (data && data.word) {
+            setResult(data);
+            serverSuccess = true;
+          }
+        }
+      } catch (serverErr) {
+        // server fetch failed, fallback below
+      }
+
+      if (!serverSuccess) {
         // Client-side fallback to Free Dictionary API directly
         const clientRes = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(cleanWord)}`);
         if (clientRes.ok) {

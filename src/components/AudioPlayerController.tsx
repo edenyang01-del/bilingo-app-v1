@@ -88,8 +88,8 @@ export const AudioPlayerController: React.FC<Props> = ({
         const res = await fetch(getApiUrl('/api/version?t=' + Date.now()), { signal: controller.signal });
         clearTimeout(timeoutId);
 
-        if (res.ok) {
-          const data = await res.json();
+        if (res.ok && res.headers.get('content-type')?.includes('application/json')) {
+          const data = await res.json().catch(() => null);
           if (data && data.version) {
             const storedBuildTime = localStorage.getItem('installed_build_time');
             const storedVersion = localStorage.getItem('installed_version');
@@ -241,6 +241,11 @@ export const AudioPlayerController: React.FC<Props> = ({
   // Helper to ensure all streams route through backend proxy for CORS/HTTPS compatibility
   const getProxiedStreamUrl = (rawUrl: string): string => {
     if (!rawUrl) return getApiUrl('/api/radio-stream-proxy');
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
+        return rawUrl;
+      }
+    }
     if (rawUrl.startsWith('/api/radio-stream-proxy')) return getApiUrl(rawUrl);
     return getApiUrl(`/api/radio-stream-proxy?url=${encodeURIComponent(rawUrl)}`);
   };
