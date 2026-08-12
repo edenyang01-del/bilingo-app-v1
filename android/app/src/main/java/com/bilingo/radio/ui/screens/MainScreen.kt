@@ -5,13 +5,17 @@ import android.content.Context
 import android.graphics.Bitmap
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
+import android.os.Handler
+import android.os.Looper
 import android.view.ViewGroup
+import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -41,6 +45,17 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.bilingo.radio.viewmodel.RadioSubtitleViewModel
 
+class WebAppInterface(
+    private val onRetry: () -> Unit
+) {
+    @JavascriptInterface
+    fun retryConnection() {
+        Handler(Looper.getMainLooper()).post {
+            onRetry()
+        }
+    }
+}
+
 fun isNetworkAvailable(context: Context): Boolean {
     val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as? ConnectivityManager
         ?: return false
@@ -59,6 +74,24 @@ fun MainScreen(
     var isOfflineError by remember { mutableStateOf(false) }
     var webViewInstance by remember { mutableStateOf<WebView?>(null) }
     val webAppUrl = "https://ais-pre-2ezjlg7ygolcgvkdlo7zla-290275720433.asia-northeast1.run.app"
+
+    val handleConnectionRetry = {
+        if (isNetworkAvailable(context)) {
+            isOfflineError = false
+            isLoading = true
+            webViewInstance?.apply {
+                settings.cacheMode = WebSettings.LOAD_DEFAULT
+                loadUrl(webAppUrl)
+            }
+        } else {
+            Toast.makeText(context, "📡 目前仍未連線至網路，請開啟 Wi-Fi 或行動數據後再試", Toast.LENGTH_SHORT).show()
+            isOfflineError = false
+            isLoading = false
+            webViewInstance?.apply {
+                loadDataWithBaseURL("https://offline.bilingo.local", getOfflineHtmlContent(), "text/html", "UTF-8", null)
+            }
+        }
+    }
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFF0F172A))) {
         AndroidView(
@@ -94,10 +127,12 @@ fun MainScreen(
                         }
                     }
 
+                    addJavascriptInterface(WebAppInterface(handleConnectionRetry), "AndroidBridge")
+
                     webViewClient = object : WebViewClient() {
                         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                             super.onPageStarted(view, url, favicon)
-                            if (url != null && url != "about:blank" && !url.startsWith("data:")) {
+                            if (url != null && url != "about:blank" && !url.startsWith("data:") && !url.contains("offline.bilingo.local")) {
                                 isOfflineError = false
                             }
                             isLoading = true
@@ -115,7 +150,7 @@ fun MainScreen(
                         ) {
                             super.onReceivedError(view, request, error)
                             val reqUrl = request?.url?.toString() ?: ""
-                            if (request?.isForMainFrame == true && (reqUrl.startsWith("http://") || reqUrl.startsWith("https://"))) {
+                            if (request?.isForMainFrame == true && (reqUrl.startsWith("http://") || reqUrl.startsWith("https://")) && !reqUrl.contains("offline.bilingo.local")) {
                                 isOfflineError = true
                                 isLoading = false
                             }
@@ -183,22 +218,7 @@ fun MainScreen(
                     
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
                         Button(
-                            onClick = {
-                                if (isNetworkAvailable(context)) {
-                                    isOfflineError = false
-                                    isLoading = true
-                                    webViewInstance?.apply {
-                                        settings.cacheMode = WebSettings.LOAD_DEFAULT
-                                        loadUrl(webAppUrl)
-                                    }
-                                } else {
-                                    isOfflineError = false
-                                    isLoading = false
-                                    webViewInstance?.apply {
-                                        loadDataWithBaseURL("about:blank", getOfflineHtmlContent(), "text/html", "UTF-8", null)
-                                    }
-                                }
-                            },
+                            onClick = { handleConnectionRetry() },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF0EA5E9),
                                 contentColor = Color.White
@@ -218,18 +238,7 @@ fun MainScreen(
                         Spacer(modifier = Modifier.height(12.dp))
 
                         Button(
-                            onClick = {
-                                isOfflineError = false
-                                isLoading = true
-                                webViewInstance?.apply {
-                                    settings.cacheMode = if (isNetworkAvailable(context)) {
-                                        WebSettings.LOAD_DEFAULT
-                                    } else {
-                                        WebSettings.LOAD_CACHE_ELSE_NETWORK
-                                    }
-                                    loadUrl(webAppUrl)
-                                }
-                            },
+                            onClick = { handleConnectionRetry() },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF334155),
                                 contentColor = Color.White
@@ -378,8 +387,20 @@ fun getOfflineHtmlContent(): String {
                 當您重新連上網際網路（Wi-Fi 或行動數據）後，請點擊下方按鈕恢復線上雙語電台串流。
             </div>
         </div>
-        <button class="reload-btn" onclick="window.location.reload()">🔄 重新嘗試網路連線</button>
+        <button class="reload-btn" onclick="handleOfflineRetry()">🔄 重新嘗試網路連線</button>
+        <script>
+            function handleOfflineRetry() {
+                if (window.AndroidBridge && window.AndroidBridge.retryConnection) {
+                    window.AndroidBridge.retryConnection();
+                } else if (navigator.onLine) {
+                    window.location.href = "https://ais-pre-2ezjlg7ygolcgvkdlo7zla-290275720433.asia-northeast1.run.app";
+                } else {
+                    alert("📡 目前仍未連線至網路，請開啟 Wi-Fi 或行動數據後再試。");
+                }
+            }
+        </script>
     </body>
     </html>
     """.trimIndent()
 }
+
