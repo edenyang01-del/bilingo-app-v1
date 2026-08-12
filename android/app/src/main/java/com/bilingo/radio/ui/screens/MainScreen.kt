@@ -27,7 +27,7 @@ fun MainScreen(
     viewModel: RadioSubtitleViewModel
 ) {
     var isLoading by remember { mutableStateOf(true) }
-    val webAppUrl = "https://ais-dev-2ezjlg7ygolcgvkdlo7zla-290275720433.asia-northeast1.run.app"
+    val webAppUrl = "https://ais-pre-2ezjlg7ygolcgvkdlo7zla-290275720433.asia-northeast1.run.app"
 
     Box(modifier = Modifier.fillMaxSize()) {
         AndroidView(
