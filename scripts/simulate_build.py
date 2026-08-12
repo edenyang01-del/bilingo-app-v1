@@ -42,6 +42,12 @@ def audit_workflow():
     else:
         print_result("Gradle JVM Memory (GRADLE_OPTS)", False, "Missing or low GRADLE_OPTS memory limit")
 
+    # Check Concurrency Cancel-In-Progress
+    if "concurrency:" in content and "cancel-in-progress: true" in content:
+        print_result("Concurrency Cancellation Guard", True, "Configured 'cancel-in-progress: true' to stop duplicate/redundant builds")
+    else:
+        print_result("Concurrency Cancellation Guard", False, "Missing 'concurrency' guard, fast consecutive pushes will spawn duplicate Action runs")
+
 def audit_gradlew():
     print_header("2. Gradle Wrapper Script (android/gradlew)")
     gradlew_path = "android/gradlew"
@@ -66,8 +72,9 @@ def audit_gradlew():
         print_result("gradlew Client Heap Memory", False, "Could not locate DEFAULT_JVM_OPTS in gradlew")
 
 def audit_keystore_script():
-    print_header("3. Keystore Generator Script (android/app/ensure_keystore.py)")
+    print_header("3. Keystore Generator Script & Keystore Persistence")
     script_path = "android/app/ensure_keystore.py"
+    ks_path = "android/app/release.keystore"
     if not os.path.exists(script_path):
         print_result("ensure_keystore.py File Existence", False, f"{script_path} not found")
         return False
@@ -78,6 +85,17 @@ def audit_keystore_script():
         print_result("Python Script Compilation Check", True, "No syntax or import errors")
     else:
         print_result("Python Script Compilation Check", False, res.stderr)
+
+    # Check Keystore Persistence
+    if os.path.exists(ks_path) and os.path.getsize(ks_path) > 100:
+        with open(script_path, "r", encoding="utf-8") as f:
+            script_content = f.read()
+        if "release.keystore" in script_content and "bilingo123456" in script_content:
+            print_result("Consistent Keystore Signature", True, "release.keystore exists in repository; app updates can overwrite without uninstalling!")
+        else:
+            print_result("Consistent Keystore Signature", False, "release.keystore exists but ensure_keystore.py lacks fallback logic")
+    else:
+        print_result("Consistent Keystore Signature", False, "Missing release.keystore in repository! Builds will generate random signatures and block in-place APK updates!")
 
 def audit_android_gradle():
     print_header("4. Android App Gradle Config (android/app/build.gradle.kts)")
@@ -158,6 +176,30 @@ def audit_web_assets():
     else:
         print_result("Android Asset Sync (assets/www/index.html)", False, "index.html missing or empty in assets/www")
 
+def audit_audio_player_and_streams():
+    print_header("7. Radio Audio Streams & CORS Playback Audit")
+    player_file = "src/components/AudioPlayerController.tsx"
+    if os.path.exists(player_file):
+        with open(player_file, "r", encoding="utf-8") as f:
+            player_code = f.read()
+        
+        # Check crossOrigin attribute in <audio
+        if 'crossOrigin="anonymous"' in player_code or "crossOrigin='anonymous'" in player_code:
+            print_result("Audio Tag CORS Attribute Guard", False, "Found crossOrigin='anonymous' on <audio> tag! This WILL block live radio streams that lack CORS headers!")
+        else:
+            print_result("Audio Tag CORS Attribute Guard", True, "No crossOrigin attribute on <audio> tag; live radio streams can play seamlessly across origins")
+
+    app_file = "src/App.tsx"
+    if os.path.exists(app_file):
+        with open(app_file, "r", encoding="utf-8") as f:
+            app_code = f.read()
+        
+        # Check stream URLs
+        if "https://npr-ice.streamguys1.com" in app_code and "https://stream.live.vc.bbcmedia.co.uk" in app_code:
+            print_result("Default Radio Station URLs", True, "Default radio streams present and configured with direct stream URLs")
+        else:
+            print_result("Default Radio Station URLs", False, "Default radio stream URLs missing or misconfigured")
+
 def main():
     print("=" * 60)
     print(" 🚀 GitHub Actions & Android Build Local Simulator & Audit")
@@ -168,6 +210,7 @@ def main():
     audit_android_gradle()
     audit_kotlin_sources()
     audit_web_assets()
+    audit_audio_player_and_streams()
     print("\n" + "=" * 60)
     print(" 🏁 All Audit Checks Completed Successfully!")
     print("=" * 60 + "\n")

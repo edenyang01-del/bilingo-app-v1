@@ -17,7 +17,7 @@ const DEFAULT_STATIONS: RadioStation[] = [
     freq: '新聞廣播串流',
     location: 'San Francisco, CA',
     category: '美國新聞與公共談話 (US News & Talk)',
-    streamUrl: '/api/radio-stream-proxy?url=' + encodeURIComponent('https://npr-ice.streamguys1.com/live.mp3'),
+    streamUrl: 'https://npr-ice.streamguys1.com/live.mp3',
   },
   {
     id: 'us-east-public-news',
@@ -25,7 +25,7 @@ const DEFAULT_STATIONS: RadioStation[] = [
     freq: '時事廣播串流',
     location: 'Concord, NH',
     category: '美國新聞與英語談話 (US News & Talk)',
-    streamUrl: '/api/radio-stream-proxy?url=' + encodeURIComponent('https://nhpr.streamguys1.com/nhpr'),
+    streamUrl: 'https://nhpr.streamguys1.com/nhpr',
   },
   {
     id: 'us-finance-news-talk',
@@ -33,7 +33,7 @@ const DEFAULT_STATIONS: RadioStation[] = [
     freq: 'Finance Stream',
     location: 'New York, NY',
     category: '美國財經與新聞 (US Finance & Talk)',
-    streamUrl: '/api/radio-stream-proxy?url=' + encodeURIComponent('https://stream.revma.ihrhls.com/zc4732'),
+    streamUrl: 'https://stream.revma.ihrhls.com/zc4732',
   },
   {
     id: 'us-national-public-talk',
@@ -41,7 +41,7 @@ const DEFAULT_STATIONS: RadioStation[] = [
     freq: 'National Stream',
     location: 'Washington, D.C.',
     category: '美國時事與深度談話 (US Dialogue & News)',
-    streamUrl: '/api/radio-stream-proxy?url=' + encodeURIComponent('https://npr-ice.streamguys1.com/live.mp3'),
+    streamUrl: 'https://npr-ice.streamguys1.com/live.mp3',
   },
   {
     id: 'uk-global-english-news',
@@ -49,7 +49,7 @@ const DEFAULT_STATIONS: RadioStation[] = [
     freq: 'World Service',
     location: 'London, UK',
     category: '英國國際新聞 (UK Global News)',
-    streamUrl: '/api/radio-stream-proxy?url=' + encodeURIComponent('https://stream.live.vc.bbcmedia.co.uk/bbc_world_service'),
+    streamUrl: 'https://stream.live.vc.bbcmedia.co.uk/bbc_world_service',
   },
 ];
 

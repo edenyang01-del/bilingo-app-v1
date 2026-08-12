@@ -74,6 +74,14 @@ def main():
         except Exception as e:
             print(f"Error decoding base64 keystore: {e}")
 
+    # If no valid secret was provided, check if a committed release.keystore exists in git
+    if not valid and os.path.exists(ks_path) and os.path.getsize(ks_path) > 100:
+        final_store_pass = "bilingo123456"
+        final_key_pass = "bilingo123456"
+        final_alias = "bilingokey"
+        valid = True
+        status_msg = "Using committed repository release keystore (ensures consistent signature across all builds)."
+
     if not valid:
         if os.path.exists(ks_path):
             try:

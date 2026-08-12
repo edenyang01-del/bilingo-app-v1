@@ -238,16 +238,32 @@ export const AudioPlayerController: React.FC<Props> = ({
     activeStationRef.current = activeStation;
   }, [activeStation]);
 
-  // Helper to ensure all streams route through backend proxy for CORS/HTTPS compatibility
+  // Helper to ensure direct radio stream URL is extracted and played seamlessly across Web & Android
   const getProxiedStreamUrl = (rawUrl: string): string => {
-    if (!rawUrl) return getApiUrl('/api/radio-stream-proxy');
-    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
-      if (typeof window !== 'undefined' && window.location.protocol === 'file:') {
-        return rawUrl;
-      }
+    if (!rawUrl) return 'https://npr-ice.streamguys1.com/live.mp3';
+
+    // If rawUrl is encoded like /api/radio-stream-proxy?url=https...
+    if (rawUrl.includes('/api/radio-stream-proxy') && rawUrl.includes('url=')) {
+      try {
+        const parts = rawUrl.split('url=');
+        if (parts.length > 1) {
+          const decoded = decodeURIComponent(parts[1]);
+          if (decoded.startsWith('http://') || decoded.startsWith('https://')) {
+            return decoded;
+          }
+        }
+      } catch (e) {}
     }
-    if (rawUrl.startsWith('/api/radio-stream-proxy')) return getApiUrl(rawUrl);
-    return getApiUrl(`/api/radio-stream-proxy?url=${encodeURIComponent(rawUrl)}`);
+
+    if (rawUrl.startsWith('http://') || rawUrl.startsWith('https://')) {
+      return rawUrl;
+    }
+
+    if (rawUrl.startsWith('/api/radio-stream-proxy')) {
+      return getApiUrl(rawUrl);
+    }
+
+    return rawUrl;
   };
 
   // Helper to append query parameter cleanly (? vs &)
@@ -877,7 +893,6 @@ export const AudioPlayerController: React.FC<Props> = ({
       <audio
         ref={audioRef}
         src={getProxiedStreamUrl(activeStation.streamUrl)}
-        crossOrigin="anonymous"
         preload="auto"
         onWaiting={() => setPlaybackStatus('BUFFERING')}
         onPlaying={() => {
