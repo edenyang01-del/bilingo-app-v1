@@ -51,7 +51,11 @@ class WebAppInterface(
     @JavascriptInterface
     fun retryConnection() {
         Handler(Looper.getMainLooper()).post {
-            onRetry()
+            try {
+                onRetry()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 }
@@ -76,20 +80,27 @@ fun MainScreen(
     val webAppUrl = "https://ais-pre-2ezjlg7ygolcgvkdlo7zla-290275720433.asia-northeast1.run.app"
 
     val handleConnectionRetry = {
-        if (isNetworkAvailable(context)) {
-            isOfflineError = false
-            isLoading = true
-            webViewInstance?.apply {
-                settings.cacheMode = WebSettings.LOAD_DEFAULT
-                loadUrl(webAppUrl)
+        try {
+            if (isNetworkAvailable(context)) {
+                Toast.makeText(context.applicationContext, "⚡ 網路已連線，正在載入 Live Bilingo...", Toast.LENGTH_SHORT).show()
+                isOfflineError = false
+                isLoading = true
+                webViewInstance?.apply {
+                    stopLoading()
+                    settings.cacheMode = WebSettings.LOAD_DEFAULT
+                    loadUrl(webAppUrl)
+                }
+            } else {
+                Toast.makeText(context.applicationContext, "📡 目前仍未連線至網路，請開啟 Wi-Fi 或行動數據", Toast.LENGTH_SHORT).show()
+                isOfflineError = false
+                isLoading = false
+                webViewInstance?.apply {
+                    stopLoading()
+                    loadDataWithBaseURL("file:///android_asset/", getOfflineHtmlContent(), "text/html", "UTF-8", null)
+                }
             }
-        } else {
-            Toast.makeText(context, "📡 目前仍未連線至網路，請開啟 Wi-Fi 或行動數據後再試", Toast.LENGTH_SHORT).show()
-            isOfflineError = false
-            isLoading = false
-            webViewInstance?.apply {
-                loadDataWithBaseURL("https://offline.bilingo.local", getOfflineHtmlContent(), "text/html", "UTF-8", null)
-            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -119,12 +130,7 @@ fun MainScreen(
                         setSupportZoom(false)
                         textZoom = 100
                         userAgentString = "$userAgentString AndroidApp/1.7.0"
-                        
-                        if (isNetworkAvailable(ctx)) {
-                            cacheMode = WebSettings.LOAD_DEFAULT
-                        } else {
-                            cacheMode = WebSettings.LOAD_CACHE_ELSE_NETWORK
-                        }
+                        cacheMode = if (isNetworkAvailable(ctx)) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_CACHE_ELSE_NETWORK
                     }
 
                     addJavascriptInterface(WebAppInterface(handleConnectionRetry), "AndroidBridge")
@@ -132,7 +138,7 @@ fun MainScreen(
                     webViewClient = object : WebViewClient() {
                         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                             super.onPageStarted(view, url, favicon)
-                            if (url != null && url != "about:blank" && !url.startsWith("data:") && !url.contains("offline.bilingo.local")) {
+                            if (url != null && !url.startsWith("data:") && !url.startsWith("file:")) {
                                 isOfflineError = false
                             }
                             isLoading = true
@@ -150,7 +156,7 @@ fun MainScreen(
                         ) {
                             super.onReceivedError(view, request, error)
                             val reqUrl = request?.url?.toString() ?: ""
-                            if (request?.isForMainFrame == true && (reqUrl.startsWith("http://") || reqUrl.startsWith("https://")) && !reqUrl.contains("offline.bilingo.local")) {
+                            if (request?.isForMainFrame == true && (reqUrl.startsWith("http://") || reqUrl.startsWith("https://"))) {
                                 isOfflineError = true
                                 isLoading = false
                             }
@@ -165,17 +171,19 @@ fun MainScreen(
                     }
 
                     webViewInstance = this
-                    if (!isNetworkAvailable(ctx)) {
+                    if (isNetworkAvailable(ctx)) {
+                        loadUrl(webAppUrl)
+                    } else {
                         isOfflineError = true
                         isLoading = false
+                        loadDataWithBaseURL("file:///android_asset/", getOfflineHtmlContent(), "text/html", "UTF-8", null)
                     }
-                    loadUrl(webAppUrl)
                 }
             },
             modifier = Modifier.fillMaxSize()
         )
 
-        // Native Offline Error View
+        // Native Offline Overlay
         if (isOfflineError) {
             Box(
                 modifier = Modifier
@@ -390,12 +398,16 @@ fun getOfflineHtmlContent(): String {
         <button class="reload-btn" onclick="handleOfflineRetry()">🔄 重新嘗試網路連線</button>
         <script>
             function handleOfflineRetry() {
-                if (window.AndroidBridge && window.AndroidBridge.retryConnection) {
-                    window.AndroidBridge.retryConnection();
-                } else if (navigator.onLine) {
-                    window.location.href = "https://ais-pre-2ezjlg7ygolcgvkdlo7zla-290275720433.asia-northeast1.run.app";
-                } else {
-                    alert("📡 目前仍未連線至網路，請開啟 Wi-Fi 或行動數據後再試。");
+                try {
+                    if (window.AndroidBridge && window.AndroidBridge.retryConnection) {
+                        window.AndroidBridge.retryConnection();
+                    } else if (navigator.onLine) {
+                        window.location.href = "https://ais-pre-2ezjlg7ygolcgvkdlo7zla-290275720433.asia-northeast1.run.app";
+                    } else {
+                        alert("📡 目前仍未連線至網路，請開啟 Wi-Fi 或行動數據後再試。");
+                    }
+                } catch(e) {
+                    console.error("Retry error:", e);
                 }
             }
         </script>
@@ -403,4 +415,3 @@ fun getOfflineHtmlContent(): String {
     </html>
     """.trimIndent()
 }
-
