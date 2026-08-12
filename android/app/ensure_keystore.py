@@ -74,13 +74,26 @@ def main():
         except Exception as e:
             print(f"Error decoding base64 keystore: {e}")
 
-    # If no valid secret was provided, check if a committed release.keystore exists in git
+    # If no valid secret was provided, check if a committed release.keystore exists in git and is valid
     if not valid and os.path.exists(ks_path) and os.path.getsize(ks_path) > 100:
-        final_store_pass = "bilingo123456"
-        final_key_pass = "bilingo123456"
-        final_alias = "bilingokey"
-        valid = True
-        status_msg = "Using committed repository release keystore (ensures consistent signature across all builds)."
+        test_pass = "bilingo123456"
+        test_alias = "bilingokey"
+        if check_keystore(ks_path, test_pass, test_pass, test_alias):
+            final_store_pass = test_pass
+            final_key_pass = test_pass
+            final_alias = test_alias
+            valid = True
+            status_msg = "Using verified committed repository release keystore."
+        else:
+            aliases = find_aliases(ks_path, test_pass)
+            for a in aliases:
+                if check_keystore(ks_path, test_pass, test_pass, a):
+                    final_alias = a
+                    final_store_pass = test_pass
+                    final_key_pass = test_pass
+                    valid = True
+                    status_msg = f"Using verified committed repository release keystore with alias {a}."
+                    break
 
     if not valid:
         if os.path.exists(ks_path):
@@ -125,6 +138,13 @@ def main():
             f.write(f"- **Alias**: `{final_alias}`\n")
             if os.path.exists(ks_path):
                 f.write(f"- **Keystore Size**: {os.path.getsize(ks_path)} bytes\n")
+                try:
+                    with open(ks_path, "rb") as ksf:
+                        b64_str = base64.b64encode(ksf.read()).decode("utf-8")
+                    f.write("\n<details><summary>💡 點此展開並複製 Base64 設定至 GitHub Secrets (RELEASE_KEYSTORE_BASE64) 以固定簽名</summary>\n\n")
+                    f.write(f"```\n{b64_str}\n```\n\n</details>\n")
+                except Exception:
+                    pass
 
 if __name__ == "__main__":
     main()

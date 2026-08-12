@@ -86,16 +86,13 @@ def audit_keystore_script():
     else:
         print_result("Python Script Compilation Check", False, res.stderr)
 
-    # Check Keystore Persistence
-    if os.path.exists(ks_path) and os.path.getsize(ks_path) > 100:
-        with open(script_path, "r", encoding="utf-8") as f:
-            script_content = f.read()
-        if "release.keystore" in script_content and "bilingo123456" in script_content:
-            print_result("Consistent Keystore Signature", True, "release.keystore exists in repository; app updates can overwrite without uninstalling!")
-        else:
-            print_result("Consistent Keystore Signature", False, "release.keystore exists but ensure_keystore.py lacks fallback logic")
+    # Check Keystore Handler
+    with open(script_path, "r", encoding="utf-8") as f:
+        script_content = f.read()
+    if "check_keystore" in script_content and "keytool" in script_content and "RELEASE_KEYSTORE_BASE64" in script_content:
+        print_result("Dynamic Java Keystore Guard", True, "ensure_keystore.py verifies keystore with keytool & outputs Base64 for persistent signing")
     else:
-        print_result("Consistent Keystore Signature", False, "Missing release.keystore in repository! Builds will generate random signatures and block in-place APK updates!")
+        print_result("Dynamic Java Keystore Guard", False, "ensure_keystore.py lacks proper keytool verification")
 
 def audit_android_gradle():
     print_header("4. Android App Gradle Config (android/app/build.gradle.kts)")
