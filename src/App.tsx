@@ -1,3 +1,4 @@
+// Live Bilingo Radio App v1.6.3 - MediaSession & Offline Background Audio
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SubtitleItem, PlaybackStatus, RadioStation, ReadingMode } from './types';
