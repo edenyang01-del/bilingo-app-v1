@@ -51,6 +51,10 @@ class RadioPlayerManager(private val context: Context) {
                         }
                     }
 
+                    override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                        _playbackState.value = PlaybackState.ERROR
+                    }
+
                     override fun onPlaybackStateChanged(state: Int) {
                         when (state) {
                             Player.STATE_BUFFERING -> _playbackState.value = PlaybackState.BUFFERING
@@ -71,10 +75,14 @@ class RadioPlayerManager(private val context: Context) {
     }
 
     fun play() {
-        initializePlayer()
-        exoPlayer?.playWhenReady = true
-        exoPlayer?.play()
-        _playbackState.value = PlaybackState.PLAYING
+        try {
+            initializePlayer()
+            exoPlayer?.playWhenReady = true
+            exoPlayer?.play()
+            _playbackState.value = PlaybackState.PLAYING
+        } catch (e: Exception) {
+            _playbackState.value = PlaybackState.ERROR
+        }
     }
 
     fun pause() {

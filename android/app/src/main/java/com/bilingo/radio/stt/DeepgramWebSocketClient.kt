@@ -34,45 +34,49 @@ class DeepgramWebSocketClient(
     val connectionState: SharedFlow<Boolean> = _connectionState.asSharedFlow()
 
     fun connect() {
-        val wsUrl = "wss://api.deepgram.com/v1/listen?model=nova-2&language=en-US&smart_format=true&interim_results=true"
-        
-        val request = Request.Builder()
-            .url(wsUrl)
-            .addHeader("Authorization", "Token $apiKey")
-            .build()
+        try {
+            val wsUrl = "wss://api.deepgram.com/v1/listen?model=nova-2&language=en-US&smart_format=true&interim_results=true"
+            
+            val request = Request.Builder()
+                .url(wsUrl)
+                .addHeader("Authorization", "Token $apiKey")
+                .build()
 
-        webSocket = client.newWebSocket(request, object : WebSocketListener() {
-            override fun onOpen(webSocket: WebSocket, response: Response) {
-                _connectionState.tryEmit(true)
-            }
+            webSocket = client.newWebSocket(request, object : WebSocketListener() {
+                override fun onOpen(webSocket: WebSocket, response: Response) {
+                    _connectionState.tryEmit(true)
+                }
 
-            override fun onMessage(webSocket: WebSocket, text: String) {
-                try {
-                    val json = JSONObject(text)
-                    val isFinal = json.optBoolean("is_final", false)
-                    if (isFinal) {
-                        val channel = json.optJSONObject("channel")
-                        val alternatives = channel?.optJSONArray("alternatives")
-                        if (alternatives != null && alternatives.length() > 0) {
-                            val transcript = alternatives.getJSONObject(0).optString("transcript", "").trim()
-                            if (transcript.isNotEmpty()) {
-                                _transcriptFlow.tryEmit(transcript)
+                override fun onMessage(webSocket: WebSocket, text: String) {
+                    try {
+                        val json = JSONObject(text)
+                        val isFinal = json.optBoolean("is_final", false)
+                        if (isFinal) {
+                            val channel = json.optJSONObject("channel")
+                            val alternatives = channel?.optJSONArray("alternatives")
+                            if (alternatives != null && alternatives.length() > 0) {
+                                val transcript = alternatives.getJSONObject(0).optString("transcript", "").trim()
+                                if (transcript.isNotEmpty()) {
+                                    _transcriptFlow.tryEmit(transcript)
+                                }
                             }
                         }
+                    } catch (e: Exception) {
+                        e.printStackTrace()
                     }
-                } catch (e: Exception) {
-                    e.printStackTrace()
                 }
-            }
 
-            override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
-                _connectionState.tryEmit(false)
-            }
+                override fun onFailure(webSocket: WebSocket, t: Throwable, response: Response?) {
+                    _connectionState.tryEmit(false)
+                }
 
-            override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
-                _connectionState.tryEmit(false)
-            }
-        })
+                override fun onClosed(webSocket: WebSocket, code: Int, reason: String) {
+                    _connectionState.tryEmit(false)
+                }
+            })
+        } catch (e: Exception) {
+            _connectionState.tryEmit(false)
+        }
     }
 
     fun sendAudioBytes(bytes: ByteArray) {

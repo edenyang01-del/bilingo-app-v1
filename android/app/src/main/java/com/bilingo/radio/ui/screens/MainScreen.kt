@@ -185,6 +185,11 @@ fun MainScreen(
                             onClick = {
                                 isOfflineError = false
                                 isLoading = false
+                                webViewInstance?.apply {
+                                    if (!isNetworkAvailable(context)) {
+                                        loadDataWithBaseURL("https://ais-pre-2ezjlg7ygolcgvkdlo7zla-290275720433.asia-northeast1.run.app", getOfflineHtmlContent(), "text/html", "UTF-8", null)
+                                    }
+                                }
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF0EA5E9),
@@ -256,4 +261,117 @@ fun MainScreen(
             }
         }
     }
+}
+
+fun getOfflineHtmlContent(): String {
+    return """
+    <!DOCTYPE html>
+    <html lang="zh-TW">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <title>Live Bilingo 雙語電台 - 航空離線模式</title>
+        <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body {
+                background-color: #0b0f19;
+                color: #f8fafc;
+                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                padding: 16px;
+                min-height: 100vh;
+            }
+            .banner {
+                background: linear-gradient(135deg, #b91c1c 0%, #991b1b 100%);
+                color: #ffffff;
+                padding: 12px 16px;
+                border-radius: 12px;
+                font-size: 13px;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                gap: 8px;
+                margin-bottom: 20px;
+                box-shadow: 0 4px 12px rgba(185, 28, 28, 0.3);
+            }
+            .header {
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                margin-bottom: 20px;
+                padding-bottom: 12px;
+                border-bottom: 1px solid #1e293b;
+            }
+            .logo {
+                width: 40px;
+                height: 40px;
+                background: linear-gradient(135deg, #2563eb, #4f46e5);
+                border-radius: 12px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 20px;
+            }
+            .title-box h1 { font-size: 16px; font-weight: bold; color: #ffffff; }
+            .title-box p { font-size: 12px; color: #94a3b8; }
+            .card {
+                background-color: #0f172a;
+                border: 1px solid #1e293b;
+                border-radius: 16px;
+                padding: 18px;
+                margin-bottom: 16px;
+            }
+            .card-title {
+                font-size: 14px;
+                font-weight: bold;
+                color: #38bdf8;
+                margin-bottom: 8px;
+                display: flex;
+                align-items: center;
+                gap: 6px;
+            }
+            .card-desc {
+                font-size: 13px;
+                color: #94a3b8;
+                line-height: 1.6;
+            }
+            .reload-btn {
+                width: 100%;
+                background-color: #0ea5e9;
+                color: #ffffff;
+                border: none;
+                padding: 14px;
+                border-radius: 12px;
+                font-size: 14px;
+                font-weight: bold;
+                cursor: pointer;
+                margin-top: 12px;
+                transition: opacity 0.2s;
+            }
+            .reload-btn:active { opacity: 0.8; }
+        </style>
+    </head>
+    <body>
+        <div class="banner">
+            <span>📡 航空 / 離線學習模式（網路未連線）</span>
+        </div>
+        <div class="header">
+            <div class="logo">📻</div>
+            <div class="title-box">
+                <h1>Live Bilingo 雙語電台</h1>
+                <p>已進入安全的離線主畫面</p>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-title">📖 離線學習模式已就緒</div>
+            <div class="card-desc">
+                您目前處於航空模式（未連線至網路）。<br><br>
+                在離線狀態下，您仍可閱讀本機快取的歷史雙語字幕、語音筆記與單字庫。<br>
+                當您重新連上網際網路（Wi-Fi 或行動數據）後，請點擊下方按鈕恢復線上雙語電台串流。
+            </div>
+        </div>
+        <button class="reload-btn" onclick="window.location.reload()">🔄 重新嘗試網路連線</button>
+    </body>
+    </html>
+    """.trimIndent()
 }

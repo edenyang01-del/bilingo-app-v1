@@ -12,8 +12,8 @@ android {
         applicationId = "com.bilingo.radio"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 178
+        versionName = "1.7.8"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -45,6 +45,10 @@ android {
             )
         }
         debug {
+            val ksFile = file("release.keystore")
+            if (ksFile.exists() && ksFile.length() > 500) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             isMinifyEnabled = false
         }
     }
