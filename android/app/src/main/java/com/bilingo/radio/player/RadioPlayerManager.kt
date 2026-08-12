@@ -59,7 +59,7 @@ class RadioPlayerManager(private val context: Context) {
                         when (state) {
                             Player.STATE_BUFFERING -> _playbackState.value = PlaybackState.BUFFERING
                             Player.STATE_READY -> {
-                                if (playWhenReady) {
+                                if (this@apply.playWhenReady) {
                                     _playbackState.value = PlaybackState.PLAYING
                                 } else {
                                     _playbackState.value = PlaybackState.PAUSED

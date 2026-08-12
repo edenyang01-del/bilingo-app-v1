@@ -80,7 +80,7 @@ fun MainScreen(
     val localAppUrl = "file:///android_asset/www/index.html"
     val webAppUrl = "https://ais-pre-2ezjlg7ygolcgvkdlo7zla-290275720433.asia-northeast1.run.app"
 
-    val handleConnectionRetry = {
+    val handleConnectionRetry: () -> Unit = {
         try {
             if (isNetworkAvailable(context)) {
                 Toast.makeText(context.applicationContext, "⚡ 網路已連線，正在載入 Live Bilingo...", Toast.LENGTH_SHORT).show()
@@ -132,7 +132,7 @@ fun MainScreen(
                         loadWithOverviewMode = false
                         setSupportZoom(false)
                         textZoom = 100
-                        userAgentString = "$userAgentString AndroidApp/2.0.5"
+                        userAgentString = "$userAgentString AndroidApp/2.0.7"
                         cacheMode = WebSettings.LOAD_DEFAULT
                     }
 

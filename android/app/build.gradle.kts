@@ -12,8 +12,8 @@ android {
         applicationId = "com.bilingo.radio"
         minSdk = 24
         targetSdk = 35
-        versionCode = 205
-        versionName = "2.0.5"
+        versionCode = 207
+        versionName = "2.0.7"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -97,12 +97,14 @@ dependencies {
     debugImplementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-core")
+    implementation("androidx.compose.material:material-icons-extended")
 
     // AndroidX Media3 (ExoPlayer)
     implementation("androidx.media3:media3-exoplayer:1.3.1")
 
     // Networking (OkHttp for WebSockets & Gemini REST API)
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.okio:okio:3.9.0")
 
     // Coroutines & JSON Serialization
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
