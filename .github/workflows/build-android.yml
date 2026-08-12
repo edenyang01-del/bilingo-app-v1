@@ -27,12 +27,20 @@ jobs:
       - name: Ensure Release Keystore
         run: |
           cd android/app
+          STORE_PASS="${{ secrets.RELEASE_STORE_PASSWORD }}"
+          KEY_PASS="${{ secrets.RELEASE_KEY_PASSWORD }}"
+          KEY_ALIAS="${{ secrets.RELEASE_KEY_ALIAS }}"
+          
+          STORE_PASS="${STORE_PASS:-bilingo123456}"
+          KEY_PASS="${KEY_PASS:-bilingo123456}"
+          KEY_ALIAS="${KEY_ALIAS:-bilingokey}"
+          
           if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
             echo "Restoring keystore from secret..."
             echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
           else
             echo "Generating fresh valid release keystore using keytool..."
-            keytool -genkeypair -v -keystore release.keystore -alias bilingokey -keyalg RSA -keysize 2048 -validity 10000 -storepass bilingo123456 -keypass bilingo123456 -dname "CN=Bilingo, OU=Radio, O=Bilingo, L=Taipei, ST=Taiwan, C=TW"
+            keytool -genkeypair -v -keystore release.keystore -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 -storepass "$STORE_PASS" -keypass "$KEY_PASS" -dname "CN=Bilingo, OU=Radio, O=Bilingo, L=Taipei, ST=Taiwan, C=TW"
           fi
 
       - name: Build Web App and Sync to Android Assets
@@ -44,9 +52,9 @@ jobs:
 
       - name: Build Android App Bundle (AAB) & APK
         env:
-          RELEASE_STORE_PASSWORD: "${{ secrets.RELEASE_STORE_PASSWORD || 'bilingo123456' }}"
-          RELEASE_KEY_ALIAS: "${{ secrets.RELEASE_KEY_ALIAS || 'bilingokey' }}"
-          RELEASE_KEY_PASSWORD: "${{ secrets.RELEASE_KEY_PASSWORD || 'bilingo123456' }}"
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
         run: |
           cd android
           chmod +x gradlew
