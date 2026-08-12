@@ -27,13 +27,12 @@ jobs:
       - name: Ensure Release Keystore
         run: |
           cd android/app
-          if [ -f "release.keystore" ]; then
-            echo "Using release.keystore"
-          elif [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
+          if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
             echo "Restoring keystore from secret..."
             echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
           else
-            echo "Generating release keystore..."
+            echo "Generating release keystore via keytool..."
+            rm -f release.keystore
             keytool -genkeypair -v \
               -keystore release.keystore \
               -alias "bilingokey" \
@@ -52,7 +51,8 @@ jobs:
           RELEASE_KEY_PASSWORD: "bilingo123456"
         run: |
           cd android
-          gradle assembleRelease assembleDebug bundleRelease --no-daemon --stacktrace
+          chmod +x gradlew
+          ./gradlew assembleRelease assembleDebug bundleRelease --no-daemon --stacktrace
 
       - name: Upload Release AAB to Artifacts
         uses: actions/upload-artifact@v4
