@@ -12,8 +12,8 @@ android {
         applicationId = "com.bilingo.radio"
         minSdk = 24
         targetSdk = 35
-        versionCode = 201
-        versionName = "2.0.1"
+        versionCode = 202
+        versionName = "2.0.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -21,65 +21,23 @@ android {
     signingConfigs {
         create("release") {
             val ksFile = file("release.keystore")
-            var storePass = System.getenv("RELEASE_STORE_PASSWORD")?.ifEmpty { null }
+            val storePass = System.getenv("RELEASE_STORE_PASSWORD")?.ifEmpty { null }
                 ?: System.getenv("KEYSTORE_PASSWORD")?.ifEmpty { null }
                 ?: "bilingo123456"
-            var keyPass = System.getenv("RELEASE_KEY_PASSWORD")?.ifEmpty { null }
+            val keyPass = System.getenv("RELEASE_KEY_PASSWORD")?.ifEmpty { null }
                 ?: System.getenv("KEY_PASSWORD")?.ifEmpty { null }
                 ?: storePass
-            var alias = System.getenv("RELEASE_KEY_ALIAS")?.ifEmpty { null }
+            val alias = System.getenv("RELEASE_KEY_ALIAS")?.ifEmpty { null }
                 ?: System.getenv("KEY_ALIAS")?.ifEmpty { null }
                 ?: "bilingokey"
 
-            var validReleaseKey = false
-            var resolvedAlias = alias
-
-            if (ksFile.exists() && ksFile.length() > 100) {
+            if (!ksFile.exists() || ksFile.length() < 100) {
                 try {
-                    val ks = java.security.KeyStore.getInstance(java.security.KeyStore.getDefaultType())
-                    ksFile.inputStream().use { inputStream ->
-                        ks.load(inputStream, storePass.toCharArray())
-                    }
-                    if (ks.containsAlias(alias)) {
-                        val key = try { ks.getKey(alias, keyPass.toCharArray()) } catch(e: Exception) { null }
-                            ?: try { ks.getKey(alias, storePass.toCharArray()) } catch(e: Exception) { null }
-                        if (key != null) {
-                            validReleaseKey = true
-                            resolvedAlias = alias
-                        }
-                    }
-                    if (!validReleaseKey) {
-                        val aliases = ks.aliases()
-                        while (aliases.hasMoreElements()) {
-                            val candidate = aliases.nextElement()
-                            if (ks.isKeyEntry(candidate)) {
-                                val key = try { ks.getKey(candidate, keyPass.toCharArray()) } catch(e: Exception) { null }
-                                    ?: try { ks.getKey(candidate, storePass.toCharArray()) } catch(e: Exception) { null }
-                                if (key != null) {
-                                    validReleaseKey = true
-                                    resolvedAlias = candidate
-                                    keyPass = storePass
-                                    break
-                                }
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    println("Note: Release keystore validation error (${e.message}). Will generate fresh keystore.")
-                }
-            }
-
-            if (!validReleaseKey) {
-                println("Generating self-signed release keystore for build...")
-                try {
-                    if (ksFile.exists()) { ksFile.delete() }
-                    storePass = "bilingo123456"
-                    keyPass = "bilingo123456"
-                    resolvedAlias = "bilingokey"
+                    println("Generating release keystore in Gradle...")
                     val pb = ProcessBuilder(
                         "keytool", "-genkeypair", "-v",
                         "-keystore", ksFile.absolutePath,
-                        "-alias", resolvedAlias,
+                        "-alias", alias,
                         "-keyalg", "RSA",
                         "-keysize", "2048",
                         "-validity", "10000",
@@ -89,16 +47,15 @@ android {
                     )
                     val proc = pb.start()
                     proc.waitFor()
-                    validReleaseKey = ksFile.exists() && ksFile.length() > 100
                 } catch (e: Exception) {
-                    println("Error generating fallback keystore: ${e.message}")
+                    println("Error generating release keystore: ${e.message}")
                 }
             }
 
-            if (validReleaseKey) {
+            if (ksFile.exists()) {
                 storeFile = ksFile
                 storePassword = storePass
-                keyAlias = resolvedAlias
+                keyAlias = alias
                 keyPassword = keyPass
             }
         }
