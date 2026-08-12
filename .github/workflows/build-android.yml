@@ -39,11 +39,21 @@ jobs:
           if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
             echo "Attempting to restore keystore from RELEASE_KEYSTORE_BASE64..."
             echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | tr -d ' \n\r' | base64 -d > release.keystore 2>/dev/null || true
-            if [ -s release.keystore ] && keytool -list -keystore release.keystore -storepass "$STORE_PASS" >/dev/null 2>&1; then
-              echo "Keystore restored and verified successfully from secret."
-              KEYSTORE_VALID=true
-            else
-              echo "Restored keystore was invalid or storepass did not match, removing corrupted file..."
+            if [ -s release.keystore ]; then
+              if keytool -list -keystore release.keystore -storepass "$STORE_PASS" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
+                echo "Keystore restored and verified successfully with alias '$KEY_ALIAS'."
+                KEYSTORE_VALID=true
+              elif keytool -list -keystore release.keystore -storepass "$STORE_PASS" >/dev/null 2>&1; then
+                DETECTED_ALIAS=$(keytool -list -keystore release.keystore -storepass "$STORE_PASS" | grep -i "PrivateKeyEntry" | head -n 1 | cut -d',' -f1)
+                if [ -n "$DETECTED_ALIAS" ]; then
+                  echo "Detected key alias in keystore: $DETECTED_ALIAS"
+                  KEY_ALIAS="$DETECTED_ALIAS"
+                  KEYSTORE_VALID=true
+                fi
+              fi
+            fi
+            if [ "$KEYSTORE_VALID" = "false" ]; then
+              echo "Restored keystore was invalid or password/alias did not match, removing corrupted file..."
               rm -f release.keystore
             fi
           fi
@@ -54,6 +64,10 @@ jobs:
             keytool -genkeypair -v -keystore release.keystore -alias "$KEY_ALIAS" -keyalg RSA -keysize 2048 -validity 10000 -storepass "$STORE_PASS" -keypass "$KEY_PASS" -dname "CN=Bilingo, OU=Radio, O=Bilingo, L=Taipei, ST=Taiwan, C=TW"
           fi
 
+          echo "RELEASE_STORE_PASSWORD=$STORE_PASS" >> $GITHUB_ENV
+          echo "RELEASE_KEY_PASSWORD=$KEY_PASS" >> $GITHUB_ENV
+          echo "RELEASE_KEY_ALIAS=$KEY_ALIAS" >> $GITHUB_ENV
+
       - name: Build Web App and Sync to Android Assets
         run: |
           npm ci || npm install
@@ -61,18 +75,11 @@ jobs:
           mkdir -p android/app/src/main/assets/www
           cp -r dist/* android/app/src/main/assets/www/
 
-      - name: Build Android App Bundle (AAB) & APK
-        env:
-          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
-          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+      - name: Build Android App Bundle (AAB)
         run: |
           cd android
           chmod +x gradlew
-          export RELEASE_STORE_PASSWORD="${RELEASE_STORE_PASSWORD:-bilingo123456}"
-          export RELEASE_KEY_PASSWORD="${RELEASE_KEY_PASSWORD:-$RELEASE_STORE_PASSWORD}"
-          export RELEASE_KEY_ALIAS="${RELEASE_KEY_ALIAS:-bilingokey}"
-          ./gradlew assembleRelease bundleRelease assembleDebug --no-daemon --stacktrace
+          ./gradlew bundleRelease --no-daemon --stacktrace
 
       - name: Upload Release AAB to Artifacts
         uses: actions/upload-artifact@v4
@@ -82,6 +89,12 @@ jobs:
           path: android/app/build/outputs/bundle/release/*.aab
           if-no-files-found: ignore
 
+      - name: Build Android Release APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon --stacktrace
+
       - name: Upload Release APK to Artifacts
         uses: actions/upload-artifact@v4
         if: always()
@@ -89,6 +102,12 @@ jobs:
           name: app-release-apk
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: ignore
+
+      - name: Build Android Debug APK
+        run: |
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload Debug APK to Artifacts
         uses: actions/upload-artifact@v4
