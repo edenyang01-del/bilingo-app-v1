@@ -44,13 +44,13 @@ jobs:
 
       - name: Build Android App Bundle (AAB) & APK
         env:
-          RELEASE_STORE_PASSWORD: "bilingo123456"
-          RELEASE_KEY_ALIAS: "bilingokey"
-          RELEASE_KEY_PASSWORD: "bilingo123456"
+          RELEASE_STORE_PASSWORD: "${{ secrets.RELEASE_STORE_PASSWORD || 'bilingo123456' }}"
+          RELEASE_KEY_ALIAS: "${{ secrets.RELEASE_KEY_ALIAS || 'bilingokey' }}"
+          RELEASE_KEY_PASSWORD: "${{ secrets.RELEASE_KEY_PASSWORD || 'bilingo123456' }}"
         run: |
           cd android
           chmod +x gradlew
-          ./gradlew assembleRelease assembleDebug bundleRelease --no-daemon --stacktrace
+          ./gradlew assembleRelease bundleRelease assembleDebug --no-daemon --stacktrace
 
       - name: Upload Release AAB to Artifacts
         uses: actions/upload-artifact@v4
