@@ -53,6 +53,9 @@ const DEFAULT_STATIONS: RadioStation[] = [
 ];
 
 export default function App() {
+  const [isOnline, setIsOnline] = useState<boolean>(() => {
+    return typeof navigator !== 'undefined' ? navigator.onLine : true;
+  });
   const [isInitializing, setIsInitializing] = useState(true);
   const [initProgress, setInitProgress] = useState(20);
   const [initStatusText, setInitStatusText] = useState('初始化系統模組...');
@@ -62,6 +65,27 @@ export default function App() {
   const [sttConnected, setSttConnected] = useState(false);
 
   useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      setIsOnline(false);
+      setInitProgress(100);
+      setInitStatusText('離線/航空模式中...');
+      setIsInitializing(false);
+      return;
+    }
+
     const timer1 = setTimeout(() => {
       setInitProgress(60);
       setInitStatusText('連接雙語廣播與字幕串流...');
@@ -72,7 +96,7 @@ export default function App() {
       setInitStatusText('載入電台清單與語音對齊模組...');
     }, 450);
 
-  const timer3 = setTimeout(() => {
+    const timer3 = setTimeout(() => {
       setInitProgress(100);
       setIsInitializing(false);
     }, 700);
@@ -525,6 +549,24 @@ export default function App() {
             className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-lg text-[11px] shrink-0 cursor-pointer shadow transition-transform active:scale-95"
           >
             安裝 App 說明
+          </button>
+        </div>
+      )}
+
+      {/* Offline Network Warning Banner */}
+      {!isOnline && (
+        <div className="bg-red-600/90 text-white border-b border-red-500/50 px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium flex items-center justify-between gap-2 z-50 relative shadow-md">
+          <div className="flex items-center gap-2 overflow-hidden">
+            <span className="text-base shrink-0 animate-pulse">📡</span>
+            <span className="truncate text-[11px] sm:text-xs">
+              <b>目前為航空/離線模式（網路未連線）：</b>已進入主畫面離線模式，可閱讀學習歷史字幕與單字筆記。
+            </span>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-2.5 py-1 bg-white text-red-700 hover:bg-slate-100 font-bold rounded-lg text-[11px] shrink-0 cursor-pointer shadow transition-all active:scale-95"
+          >
+            重試連線
           </button>
         </div>
       )}

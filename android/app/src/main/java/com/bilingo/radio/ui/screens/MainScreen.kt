@@ -69,6 +69,7 @@ fun MainScreen(
                         ViewGroup.LayoutParams.MATCH_PARENT
                     )
                     
+                    setBackgroundColor(android.graphics.Color.parseColor("#0F172A"))
                     setLayerType(android.view.View.LAYER_TYPE_HARDWARE, null)
                     webChromeClient = WebChromeClient()
 
@@ -84,7 +85,7 @@ fun MainScreen(
                         loadWithOverviewMode = false
                         setSupportZoom(false)
                         textZoom = 100
-                        userAgentString = "$userAgentString AndroidApp/1.6.0"
+                        userAgentString = "$userAgentString AndroidApp/1.7.0"
                         
                         if (isNetworkAvailable(ctx)) {
                             cacheMode = WebSettings.LOAD_DEFAULT
@@ -96,7 +97,9 @@ fun MainScreen(
                     webViewClient = object : WebViewClient() {
                         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                             super.onPageStarted(view, url, favicon)
-                            isOfflineError = false
+                            if (url != null && url != "about:blank") {
+                                isOfflineError = false
+                            }
                             isLoading = true
                         }
 
@@ -114,7 +117,6 @@ fun MainScreen(
                             if (request?.isForMainFrame == true) {
                                 isOfflineError = true
                                 isLoading = false
-                                view?.loadUrl("about:blank")
                             }
                         }
 
@@ -127,6 +129,10 @@ fun MainScreen(
                     }
 
                     webViewInstance = this
+                    if (!isNetworkAvailable(ctx)) {
+                        isOfflineError = true
+                        isLoading = false
+                    }
                     loadUrl(webAppUrl)
                 }
             },
@@ -159,47 +165,73 @@ fun MainScreen(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "網路連線已中斷",
+                        text = "目前為航空 / 離線模式（無網路連線）",
                         fontSize = 16.sp,
                         fontWeight = FontWeight.SemiBold,
                         color = Color(0xFFF87171)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "目前處於離線狀態，無法載入線上電台與即時雙語字幕。\n請檢查您的 Wi-Fi 或行動網路連線。",
+                        text = "已進入離線學習模式！您可繼續檢視先前快取的歷史雙語字幕、學習筆記與字典。\n連上 Wi-Fi 或行動網路後將自動恢復線上廣播。",
                         fontSize = 14.sp,
                         color = Color(0xFF94A3B8),
                         textAlign = TextAlign.Center,
                         lineHeight = 20.sp
                     )
                     Spacer(modifier = Modifier.height(28.dp))
-                    Button(
-                        onClick = {
-                            isOfflineError = false
-                            isLoading = true
-                            webViewInstance?.apply {
-                                settings.cacheMode = if (isNetworkAvailable(context)) {
-                                    WebSettings.LOAD_DEFAULT
-                                } else {
-                                    WebSettings.LOAD_CACHE_ELSE_NETWORK
+                    
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Button(
+                            onClick = {
+                                isOfflineError = false
+                                isLoading = false
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF0EA5E9),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .height(48.dp)
+                                .padding(horizontal = 16.dp)
+                        ) {
+                            Text(
+                                text = "進入主畫面 (離線模式)",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(12.dp))
+
+                        Button(
+                            onClick = {
+                                isOfflineError = false
+                                isLoading = true
+                                webViewInstance?.apply {
+                                    settings.cacheMode = if (isNetworkAvailable(context)) {
+                                        WebSettings.LOAD_DEFAULT
+                                    } else {
+                                        WebSettings.LOAD_CACHE_ELSE_NETWORK
+                                    }
+                                    loadUrl(webAppUrl)
                                 }
-                                loadUrl(webAppUrl)
-                            }
-                        },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF0EA5E9),
-                            contentColor = Color.White
-                        ),
-                        shape = RoundedCornerShape(12.dp),
-                        modifier = Modifier
-                            .height(48.dp)
-                            .padding(horizontal = 16.dp)
-                    ) {
-                        Text(
-                            text = "🔄 重新連線",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Bold
-                        )
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF334155),
+                                contentColor = Color.White
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            modifier = Modifier
+                                .height(44.dp)
+                                .padding(horizontal = 16.dp)
+                        ) {
+                            Text(
+                                text = "🔄 重新試圖連線",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
                     }
                 }
             }
