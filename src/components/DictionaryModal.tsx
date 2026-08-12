@@ -3,6 +3,8 @@ import { Search, Volume2, BookOpen, X, Sparkles, Copy, Check, ExternalLink, Book
 import { motion, AnimatePresence } from 'motion/react';
 import { speakText } from '../utils/tts';
 
+import { getApiUrl } from '../utils/apiUrl';
+
 interface DictionaryMeaning {
   partOfSpeech: string;
   definition: string;
@@ -59,7 +61,7 @@ export const DictionaryModal: React.FC<Props> = ({ isOpen, onClose, initialWord 
     setSearchWord(cleanWord);
 
     try {
-      const res = await fetch(`/api/dictionary?word=${encodeURIComponent(cleanWord)}`);
+      const res = await fetch(getApiUrl(`/api/dictionary?word=${encodeURIComponent(cleanWord)}`));
       if (res.ok) {
         const data = await res.json();
         setResult(data);

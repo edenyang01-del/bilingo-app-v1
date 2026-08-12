@@ -7,6 +7,7 @@ import { Material3AndroidFrame } from './components/Material3AndroidFrame';
 import { AndroidCodeExplorer } from './components/AndroidCodeExplorer';
 import { StationManagerModal } from './components/StationManagerModal';
 import { DictionaryModal } from './components/DictionaryModal';
+import { getApiUrl } from './utils/apiUrl';
 import { Radio, Code2, Smartphone, Cpu, CheckCircle2, Sparkles, Volume2, ShieldCheck, Download, ListMusic, BookOpen, RefreshCw, Copy, Play, Pause, Sun, Moon } from 'lucide-react';
 
 const DEFAULT_STATIONS: RadioStation[] = [
@@ -310,7 +311,7 @@ export default function App() {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-        const res = await fetch('/api/repair-stations', {
+        const res = await fetch(getApiUrl('/api/repair-stations'), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ stations }),
@@ -341,7 +342,7 @@ export default function App() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 3000);
 
-      fetch('/api/set-active-station', {
+      fetch(getApiUrl('/api/set-active-station'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ streamUrl: activeStation.streamUrl, name: activeStation.name }),
@@ -423,7 +424,7 @@ export default function App() {
       } catch (e) {}
       return bookmarkedOnly;
     });
-    fetch('/api/clear-subtitles-history', { method: 'POST' }).catch((err) =>
+    fetch(getApiUrl('/api/clear-subtitles-history'), { method: 'POST' }).catch((err) =>
       console.warn('Failed to clear server subtitles history:', err)
     );
   };
@@ -437,7 +438,7 @@ export default function App() {
       setPlaybackStatus('PAUSED');
       audioEl.pause();
     } else {
-      fetch('/api/clear-buffer', { method: 'POST' }).catch(() => {});
+      fetch(getApiUrl('/api/clear-buffer'), { method: 'POST' }).catch(() => {});
       setPlaybackStatus('BUFFERING');
       audioEl.playbackRate = 1.0;
       audioEl
@@ -784,7 +785,7 @@ export default function App() {
           setActiveStation(station);
           setIsStationModalOpen(false);
           // Automatically start playing immediately when switching station
-          fetch('/api/clear-buffer', { method: 'POST' }).catch(() => {});
+          fetch(getApiUrl('/api/clear-buffer'), { method: 'POST' }).catch(() => {});
           setPlaybackStatus('BUFFERING');
           setTimeout(() => {
             const audioEl = document.querySelector('audio');

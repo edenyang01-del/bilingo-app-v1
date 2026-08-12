@@ -4,6 +4,7 @@ import { playBeanWallImpactSound } from '../utils/sound';
 import { PlaybackStatus, RadioStation, SubtitleItem, ReadingMode } from '../types';
 import { Play, Pause, Radio, Signal, Sparkles, Activity, Zap, Info, ListMusic, Plus, Timer, Clock, RefreshCw, X, Check, ChevronDown, Sun, Moon, BookOpen } from 'lucide-react';
 import { MarqueeText } from './MarqueeText';
+import { getApiUrl } from '../utils/apiUrl';
 
 interface Props {
   playbackStatus: PlaybackStatus;
@@ -84,7 +85,7 @@ export const AudioPlayerController: React.FC<Props> = ({
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 2500);
 
-        const res = await fetch('/api/version?t=' + Date.now(), { signal: controller.signal });
+        const res = await fetch(getApiUrl('/api/version?t=' + Date.now()), { signal: controller.signal });
         clearTimeout(timeoutId);
 
         if (res.ok) {
@@ -161,7 +162,7 @@ export const AudioPlayerController: React.FC<Props> = ({
       setRefreshNotice('正在下載最新版本...');
       await new Promise((r) => setTimeout(r, 300));
 
-      const res = await fetch('/api/version?t=' + Date.now()).catch(() => null);
+      const res = await fetch(getApiUrl('/api/version?t=' + Date.now())).catch(() => null);
       if (res && res.ok) {
         const data = await res.json().catch(() => null);
         if (data) {
@@ -239,9 +240,9 @@ export const AudioPlayerController: React.FC<Props> = ({
 
   // Helper to ensure all streams route through backend proxy for CORS/HTTPS compatibility
   const getProxiedStreamUrl = (rawUrl: string): string => {
-    if (!rawUrl) return '/api/radio-stream-proxy';
-    if (rawUrl.startsWith('/api/radio-stream-proxy')) return rawUrl;
-    return `/api/radio-stream-proxy?url=${encodeURIComponent(rawUrl)}`;
+    if (!rawUrl) return getApiUrl('/api/radio-stream-proxy');
+    if (rawUrl.startsWith('/api/radio-stream-proxy')) return getApiUrl(rawUrl);
+    return getApiUrl(`/api/radio-stream-proxy?url=${encodeURIComponent(rawUrl)}`);
   };
 
   // Helper to append query parameter cleanly (? vs &)
@@ -385,7 +386,7 @@ export const AudioPlayerController: React.FC<Props> = ({
     const randomParagraph = sampleParagraphs[Math.floor(Math.random() * sampleParagraphs.length)];
 
     try {
-      const res = await fetch('/api/translate', {
+      const res = await fetch(getApiUrl('/api/translate'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text: randomParagraph }),
@@ -421,7 +422,7 @@ export const AudioPlayerController: React.FC<Props> = ({
       }
 
       try {
-        es = new EventSource('/api/live-subtitles-stream');
+        es = new EventSource(getApiUrl('/api/live-subtitles-stream'));
         eventSourceRef.current = es;
 
         es.onopen = () => {
@@ -518,7 +519,7 @@ export const AudioPlayerController: React.FC<Props> = ({
       lastFlushTimeRef.current = Date.now();
 
       // Clear backend speech recognition buffer
-      fetch('/api/clear-buffer', { method: 'POST' }).catch(() => {});
+      fetch(getApiUrl('/api/clear-buffer'), { method: 'POST' }).catch(() => {});
 
       const audio = audioRef.current;
       audio.playbackRate = 1.0;
@@ -611,7 +612,7 @@ export const AudioPlayerController: React.FC<Props> = ({
       lastFlushTimeRef.current = Date.now();
 
       // 2. Clear backend STT stream buffer asynchronously
-      fetch('/api/clear-buffer', { method: 'POST' }).catch(() => {});
+      fetch(getApiUrl('/api/clear-buffer'), { method: 'POST' }).catch(() => {});
 
       setPlaybackStatus('BUFFERING');
       const audio = audioRef.current;
