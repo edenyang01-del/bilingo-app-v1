@@ -41,20 +41,27 @@ jobs:
             echo "Attempting to restore keystore from RELEASE_KEYSTORE_BASE64 secret..."
             echo "$RELEASE_KEYSTORE_BASE64" | tr -d ' \n\r' | base64 -d > release.keystore 2>/dev/null || true
             if [ -s release.keystore ]; then
-              if keytool -list -keystore release.keystore -storepass "$STORE_PASS" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
-                echo "Keystore restored and verified successfully with alias '$KEY_ALIAS'."
+              if keytool -exportcert -alias "$KEY_ALIAS" -keystore release.keystore -storepass "$STORE_PASS" -keypass "$KEY_PASS" >/dev/null 2>&1; then
+                echo "Keystore restored and key extracted successfully with alias '$KEY_ALIAS'."
                 KEYSTORE_VALID=true
-              elif keytool -list -keystore release.keystore -storepass "$STORE_PASS" >/dev/null 2>&1; then
-                DETECTED_ALIAS=$(keytool -list -keystore release.keystore -storepass "$STORE_PASS" | grep -i "PrivateKeyEntry" | head -n 1 | cut -d',' -f1)
+              elif keytool -exportcert -alias "$KEY_ALIAS" -keystore release.keystore -storepass "$STORE_PASS" -keypass "$STORE_PASS" >/dev/null 2>&1; then
+                echo "Keystore key extracted using storepass for keypass with alias '$KEY_ALIAS'."
+                KEY_PASS="$STORE_PASS"
+                KEYSTORE_VALID=true
+              else
+                DETECTED_ALIAS=$(keytool -list -keystore release.keystore -storepass "$STORE_PASS" 2>/dev/null | grep -i "PrivateKeyEntry" | head -n 1 | cut -d',' -f1)
                 if [ -n "$DETECTED_ALIAS" ]; then
-                  echo "Detected key alias in keystore: $DETECTED_ALIAS"
-                  KEY_ALIAS="$DETECTED_ALIAS"
-                  KEYSTORE_VALID=true
+                  if keytool -exportcert -alias "$DETECTED_ALIAS" -keystore release.keystore -storepass "$STORE_PASS" -keypass "$KEY_PASS" >/dev/null 2>&1 || \
+                     keytool -exportcert -alias "$DETECTED_ALIAS" -keystore release.keystore -storepass "$STORE_PASS" -keypass "$STORE_PASS" >/dev/null 2>&1; then
+                    echo "Detected valid key entry with alias: $DETECTED_ALIAS"
+                    KEY_ALIAS="$DETECTED_ALIAS"
+                    KEYSTORE_VALID=true
+                  fi
                 fi
               fi
             fi
             if [ "$KEYSTORE_VALID" = "false" ]; then
-              echo "Restored keystore was invalid or password/alias did not match, removing corrupted file..."
+              echo "Restored keystore key could not be recovered with provided passwords. Removing invalid keystore..."
               rm -f release.keystore
             fi
           fi
