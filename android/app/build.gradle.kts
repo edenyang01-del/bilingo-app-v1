@@ -21,20 +21,20 @@ android {
     signingConfigs {
         create("release") {
             val ksFile = file("release.keystore")
-            if (ksFile.exists()) {
+            if (ksFile.exists() && ksFile.length() > 500) {
                 storeFile = ksFile
-                storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: "bilingo123456"
-                keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: "bilingokey"
-                keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: "bilingo123456"
+                storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD") ?: "bilingo123456"
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: System.getenv("KEY_ALIAS") ?: "bilingokey"
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: System.getenv("KEY_PASSWORD") ?: "bilingo123456"
             }
         }
     }
 
     buildTypes {
         release {
-            val releaseSigning = signingConfigs.findByName("release")
-            if (releaseSigning != null && file("release.keystore").exists()) {
-                signingConfig = releaseSigning
+            val ksFile = file("release.keystore")
+            if (ksFile.exists() && ksFile.length() > 500) {
+                signingConfig = signingConfigs.getByName("release")
             } else {
                 signingConfig = signingConfigs.getByName("debug")
             }

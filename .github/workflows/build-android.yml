@@ -30,9 +30,14 @@ jobs:
           fi
 
       - name: Build Android App Bundle (AAB) & APK
+        env:
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS || secrets.KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD || secrets.KEY_PASSWORD }}
         run: |
           cd android
-          gradle assembleRelease assembleDebug --no-daemon --stacktrace || gradle assembleDebug --no-daemon --stacktrace
+          gradle assembleDebug --no-daemon --stacktrace
+          gradle assembleRelease --no-daemon --stacktrace || true
 
       - name: Upload Release AAB to Artifacts
         uses: actions/upload-artifact@v4
