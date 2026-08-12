@@ -77,6 +77,7 @@ fun MainScreen(
     var isLoading by remember { mutableStateOf(true) }
     var isOfflineError by remember { mutableStateOf(false) }
     var webViewInstance by remember { mutableStateOf<WebView?>(null) }
+    val localAppUrl = "file:///android_asset/www/index.html"
     val webAppUrl = "https://ais-pre-2ezjlg7ygolcgvkdlo7zla-290275720433.asia-northeast1.run.app"
 
     val handleConnectionRetry = {
@@ -88,15 +89,15 @@ fun MainScreen(
                 webViewInstance?.apply {
                     stopLoading()
                     settings.cacheMode = WebSettings.LOAD_DEFAULT
-                    loadUrl(webAppUrl)
+                    loadUrl(localAppUrl)
                 }
             } else {
-                Toast.makeText(context.applicationContext, "📡 目前仍未連線至網路，請開啟 Wi-Fi 或行動數據", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context.applicationContext, "📡 目前仍未連線至網路，已為您載入離線學習主頁", Toast.LENGTH_SHORT).show()
                 isOfflineError = false
                 isLoading = false
                 webViewInstance?.apply {
                     stopLoading()
-                    loadDataWithBaseURL("file:///android_asset/", getOfflineHtmlContent(), "text/html", "UTF-8", null)
+                    loadUrl(localAppUrl)
                 }
             }
         } catch (e: Exception) {
@@ -123,14 +124,16 @@ fun MainScreen(
                         databaseEnabled = true
                         allowFileAccess = true
                         allowContentAccess = true
+                        allowFileAccessFromFileURLs = true
+                        allowUniversalAccessFromFileURLs = true
                         mediaPlaybackRequiresUserGesture = false
                         mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
                         useWideViewPort = false
                         loadWithOverviewMode = false
                         setSupportZoom(false)
                         textZoom = 100
-                        userAgentString = "$userAgentString AndroidApp/1.7.0"
-                        cacheMode = if (isNetworkAvailable(ctx)) WebSettings.LOAD_DEFAULT else WebSettings.LOAD_CACHE_ELSE_NETWORK
+                        userAgentString = "$userAgentString AndroidApp/1.9.0"
+                        cacheMode = WebSettings.LOAD_DEFAULT
                     }
 
                     addJavascriptInterface(WebAppInterface(handleConnectionRetry), "AndroidBridge")
@@ -138,7 +141,7 @@ fun MainScreen(
                     webViewClient = object : WebViewClient() {
                         override fun onPageStarted(view: WebView?, url: String?, favicon: Bitmap?) {
                             super.onPageStarted(view, url, favicon)
-                            if (url != null && !url.startsWith("data:") && !url.startsWith("file:")) {
+                            if (url != null && !url.startsWith("data:")) {
                                 isOfflineError = false
                             }
                             isLoading = true
@@ -171,13 +174,7 @@ fun MainScreen(
                     }
 
                     webViewInstance = this
-                    if (isNetworkAvailable(ctx)) {
-                        loadUrl(webAppUrl)
-                    } else {
-                        isOfflineError = true
-                        isLoading = false
-                        loadDataWithBaseURL("file:///android_asset/", getOfflineHtmlContent(), "text/html", "UTF-8", null)
-                    }
+                    loadUrl(localAppUrl)
                 }
             },
             modifier = Modifier.fillMaxSize()
