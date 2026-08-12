@@ -25,20 +25,21 @@ jobs:
           gradle-version: '8.7'
 
       - name: Ensure Release Keystore
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
         run: |
           cd android/app
-          STORE_PASS="${{ secrets.RELEASE_STORE_PASSWORD }}"
-          KEY_PASS="${{ secrets.RELEASE_KEY_PASSWORD }}"
-          KEY_ALIAS="${{ secrets.RELEASE_KEY_ALIAS }}"
-          
-          STORE_PASS="${STORE_PASS:-bilingo123456}"
-          KEY_PASS="${KEY_PASS:-$STORE_PASS}"
-          KEY_ALIAS="${KEY_ALIAS:-bilingokey}"
+          STORE_PASS="${RELEASE_STORE_PASSWORD:-bilingo123456}"
+          KEY_PASS="${RELEASE_KEY_PASSWORD:-$STORE_PASS}"
+          KEY_ALIAS="${RELEASE_KEY_ALIAS:-bilingokey}"
           
           KEYSTORE_VALID=false
-          if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
-            echo "Attempting to restore keystore from RELEASE_KEYSTORE_BASE64..."
-            echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | tr -d ' \n\r' | base64 -d > release.keystore 2>/dev/null || true
+          if [ -n "$RELEASE_KEYSTORE_BASE64" ]; then
+            echo "Attempting to restore keystore from RELEASE_KEYSTORE_BASE64 secret..."
+            echo "$RELEASE_KEYSTORE_BASE64" | tr -d ' \n\r' | base64 -d > release.keystore 2>/dev/null || true
             if [ -s release.keystore ]; then
               if keytool -list -keystore release.keystore -storepass "$STORE_PASS" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
                 echo "Keystore restored and verified successfully with alias '$KEY_ALIAS'."

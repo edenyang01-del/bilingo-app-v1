@@ -12,8 +12,8 @@ android {
         applicationId = "com.bilingo.radio"
         minSdk = 24
         targetSdk = 35
-        versionCode = 199
-        versionName = "1.9.9"
+        versionCode = 200
+        versionName = "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -31,30 +31,44 @@ android {
                 ?: System.getenv("KEY_ALIAS")?.ifEmpty { null }
                 ?: "bilingokey"
 
-            if (!ksFile.exists() || ksFile.length() <= 100) {
+            var validReleaseKey = false
+            var resolvedAlias = alias
+
+            if (ksFile.exists() && ksFile.length() > 100) {
                 try {
-                    val pb = ProcessBuilder(
-                        "keytool", "-genkeypair", "-v",
-                        "-keystore", ksFile.absolutePath,
-                        "-alias", alias,
-                        "-keyalg", "RSA",
-                        "-keysize", "2048",
-                        "-validity", "10000",
-                        "-storepass", storePass,
-                        "-keypass", keyPass,
-                        "-dname", "CN=Bilingo, OU=Radio, O=Bilingo, L=Taipei, ST=Taiwan, C=TW"
-                    )
-                    val process = pb.start()
-                    process.waitFor()
+                    val ks = java.security.KeyStore.getInstance(java.security.KeyStore.getDefaultType())
+                    ksFile.inputStream().use { inputStream ->
+                        ks.load(inputStream, storePass.toCharArray())
+                    }
+                    if (ks.containsAlias(alias)) {
+                        val key = ks.getKey(alias, keyPass.toCharArray())
+                        if (key != null) {
+                            validReleaseKey = true
+                            resolvedAlias = alias
+                        }
+                    } else {
+                        val aliases = ks.aliases()
+                        while (aliases.hasMoreElements()) {
+                            val candidate = aliases.nextElement()
+                            if (ks.isKeyEntry(candidate)) {
+                                val key = ks.getKey(candidate, keyPass.toCharArray())
+                                if (key != null) {
+                                    validReleaseKey = true
+                                    resolvedAlias = candidate
+                                    break
+                                }
+                            }
+                        }
+                    }
                 } catch (e: Exception) {
-                    println("Note: Failed to auto-generate release.keystore: ${e.message}")
+                    println("Note: Release keystore validation error (${e.message}). Falling back to debug signing config.")
                 }
             }
 
-            if (ksFile.exists() && ksFile.length() > 100) {
+            if (validReleaseKey) {
                 storeFile = ksFile
                 storePassword = storePass
-                keyAlias = alias
+                keyAlias = resolvedAlias
                 keyPassword = keyPass
             } else {
                 val debugConfig = signingConfigs.getByName("debug")
