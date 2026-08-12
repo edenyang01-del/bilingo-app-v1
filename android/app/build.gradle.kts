@@ -12,8 +12,8 @@ android {
         applicationId = "com.bilingo.radio"
         minSdk = 24
         targetSdk = 35
-        versionCode = 179
-        versionName = "1.7.9"
+        versionCode = 180
+        versionName = "1.8.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -23,9 +23,15 @@ android {
             val ksFile = file("release.keystore")
             if (ksFile.exists() && ksFile.length() > 100) {
                 storeFile = ksFile
-                storePassword = System.getenv("RELEASE_STORE_PASSWORD") ?: System.getenv("KEYSTORE_PASSWORD") ?: "bilingo123456"
-                keyAlias = System.getenv("RELEASE_KEY_ALIAS") ?: System.getenv("KEY_ALIAS") ?: "bilingokey"
-                keyPassword = System.getenv("RELEASE_KEY_PASSWORD") ?: System.getenv("KEY_PASSWORD") ?: "bilingo123456"
+                storePassword = System.getenv("RELEASE_STORE_PASSWORD")?.ifEmpty { null }
+                    ?: System.getenv("KEYSTORE_PASSWORD")?.ifEmpty { null }
+                    ?: "bilingo123456"
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")?.ifEmpty { null }
+                    ?: System.getenv("KEY_ALIAS")?.ifEmpty { null }
+                    ?: "bilingokey"
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")?.ifEmpty { null }
+                    ?: System.getenv("KEY_PASSWORD")?.ifEmpty { null }
+                    ?: "bilingo123456"
             } else {
                 storeFile = file("${System.getProperty("user.home")}/.android/debug.keystore")
                 storePassword = "android"

@@ -24,34 +24,35 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Restore or Generate Release Keystore
+      - name: Ensure Release Keystore
         run: |
           cd android/app
-          if [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
+          if [ -f "release.keystore" ]; then
+            echo "Using release.keystore"
+          elif [ -n "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" ]; then
             echo "Restoring keystore from secret..."
             echo "${{ secrets.RELEASE_KEYSTORE_BASE64 }}" | base64 -d > release.keystore
           else
-            echo "Generating consistent release keystore..."
+            echo "Generating release keystore..."
             keytool -genkeypair -v \
               -keystore release.keystore \
-              -alias "${{ secrets.RELEASE_KEY_ALIAS || 'bilingokey' }}" \
+              -alias "bilingokey" \
               -keyalg RSA \
               -keysize 2048 \
               -validity 10000 \
-              -storepass "${{ secrets.RELEASE_STORE_PASSWORD || 'bilingo123456' }}" \
-              -keypass "${{ secrets.RELEASE_KEY_PASSWORD || 'bilingo123456' }}" \
+              -storepass "bilingo123456" \
+              -keypass "bilingo123456" \
               -dname "CN=Bilingo, OU=Radio, O=Bilingo, L=Taipei, C=TW"
           fi
 
       - name: Build Android App Bundle (AAB) & APK
         env:
-          RELEASE_STORE_PASSWORD: ${{ secrets.RELEASE_STORE_PASSWORD || secrets.KEYSTORE_PASSWORD }}
-          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS || secrets.KEY_ALIAS }}
-          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD || secrets.KEY_PASSWORD }}
+          RELEASE_STORE_PASSWORD: "bilingo123456"
+          RELEASE_KEY_ALIAS: "bilingokey"
+          RELEASE_KEY_PASSWORD: "bilingo123456"
         run: |
           cd android
-          gradle assembleDebug --no-daemon --stacktrace
-          gradle assembleRelease --no-daemon --stacktrace || true
+          gradle assembleRelease assembleDebug bundleRelease --no-daemon --stacktrace
 
       - name: Upload Release AAB to Artifacts
         uses: actions/upload-artifact@v4
