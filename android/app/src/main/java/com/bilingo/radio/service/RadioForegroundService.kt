@@ -12,6 +12,7 @@ import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
 import com.bilingo.radio.MainActivity
+import com.bilingo.radio.R
 
 class RadioForegroundService : Service() {
 
